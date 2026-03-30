@@ -1,8 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import SyncCanvas from '../components/SyncCanvas';
+import MagicBoxDashboard from '../components/MagicBoxDashboard';
+import PixelReceipt from '../components/PixelReceipt';
+import BarcodeScannerMockup from '../components/BarcodeScannerMockup';
+import MagicSnapAnimation from '../components/MagicSnapAnimation';
+import { useTransition } from '../contexts/TransitionContext';
 import './Landing.css';
 
 export default function Landing() {
+  const startTransition = useTransition();
   const containerRef = useRef(null);
   const magneticRef = useRef(null);
   const storyRef = useRef(null);
@@ -17,17 +24,20 @@ export default function Landing() {
       const y = (e.clientY / innerHeight - 0.5) * 2; // -1 to 1
       
       const elements = containerRef.current.querySelectorAll('.mockup-item');
-      elements.forEach((el, index) => {
+      elements.forEach((el) => {
+        const isItem1 = el.classList.contains('mockup-item-1');
+        const isItem2 = el.classList.contains('mockup-item-2');
+        
         // Different layers move at different depths
-        const depth = index === 0 ? 30 : index === 1 ? -20 : 15;
+        const depth = isItem1 ? 15 : isItem2 ? 30 : -20;
         const rotateX = -y * depth;
         const rotateY = x * depth;
-        // Keep their base transforms
-        const baseTx = el.classList.contains('mockup-item-1') ? '-50%' : '0';
-        const baseTz = el.classList.contains('mockup-item-1') ? '60px' : el.classList.contains('mockup-item-2') ? '20px' : '40px';
-        const baseRotZ = el.classList.contains('mockup-item-2') ? '-10deg' : el.classList.contains('mockup-item-3') ? '10deg' : '0deg';
+        
+        // Keep their base transforms from CSS
+        const baseTz = isItem1 ? '60px' : isItem2 ? '20px' : '40px';
+        const baseRotZ = isItem2 ? '-10deg' : !isItem1 ? '10deg' : '0deg';
 
-        el.style.transform = `translateX(${baseTx}) translateZ(${baseTz}) rotateZ(${baseRotZ}) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+        el.style.transform = `translateZ(${baseTz}) rotateZ(${baseRotZ}) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
       });
     };
 
@@ -101,8 +111,8 @@ export default function Landing() {
           Pantry Snap
         </div>
         <div className="landing-nav-actions">
-          <Link to="/login" className="nav-link">Log In</Link>
-          <Link to="/login" className="nav-btn">Start Free</Link>
+          <button onClick={() => startTransition('/login')} className="nav-link">Log In</button>
+          <button onClick={() => startTransition('/login?mode=signup')} className="nav-btn">Start Free</button>
         </div>
       </nav>
 
@@ -117,25 +127,16 @@ export default function Landing() {
         </div>
         
         <div className="hero-mockup-container">
-          <div className="mockup-item mockup-item-2">
-            <div style={{ padding: '20px', background: '#fdfdfd', color: '#111', height: '100%', borderRadius: '8px', opacity: 0.9 }}>
-              <strong style={{ fontSize: '18px' }}>Store Receipt</strong>
-              <div style={{ height: '4px', background: '#ccc', width: '80%', marginTop: '16px', borderRadius: '4px' }}></div>
-              <div style={{ height: '4px', background: '#ccc', width: '60%', marginTop: '8px', borderRadius: '4px' }}></div>
-              <div style={{ height: '4px', background: '#ccc', width: '90%', marginTop: '8px', borderRadius: '4px' }}></div>
-              <div style={{ height: '4px', background: '#ccc', width: '40%', marginTop: '8px', borderRadius: '4px' }}></div>
-            </div>
+          <div className="mockup-item mockup-item-2" style={{ padding: 0 }}>
+             <PixelReceipt />
           </div>
-          <div className="mockup-item mockup-item-3">
-             <h4 style={{ color: '#fff' }}>Dashboard</h4>
-             <div style={{ flex: 1, border: '4px solid #333', borderRadius: '50%', width: '120px', height: '120px', alignSelf: 'center', marginTop: '20px' }}></div>
-             <div style={{ height: '24px', background: '#333', width: '100%', marginTop: 'auto', borderRadius: '8px' }}></div>
-          </div>
-          <div className="mockup-item mockup-item-1">
-             <div style={{ flex: 1, background: '#111', borderRadius: '12px', border: '1px solid #333', overflow: 'hidden', position: 'relative' }}>
-                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', border: '2px solid #a855f7', width: '80%', height: '80%', borderRadius: '8px' }}></div>
+          <div className="mockup-item mockup-item-3" style={{ padding: '0', background: 'transparent', border: 'none', overflow: 'hidden' }}>
+             <div style={{ padding: '20px', background: 'rgba(20, 20, 20, 0.6)', border: '1px solid rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(20px)', borderRadius: '24px', height: '100%' }}>
+               <MagicBoxDashboard />
              </div>
-             <button style={{ background: '#fff', color: '#000', padding: '12px', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}>Scan Barcode</button>
+          </div>
+          <div className="mockup-item mockup-item-1" style={{ overflow: 'hidden' }}>
+             <BarcodeScannerMockup />
           </div>
         </div>
       </header>
@@ -148,25 +149,8 @@ export default function Landing() {
               <h2>The Magic Snap Component</h2>
               <p>Forget manual entry. Just hold up your receipt and let our bespoke Vision AI do the parsing, categorization, and quantity matching instantly.</p>
             </div>
-            <div className={`story-visual ${isStoryTriggered ? 'triggered' : ''}`}>
-               <div className="receipt-paper">
-                 <strong style={{ fontSize: '20px', marginBottom: '16px', display: 'block' }}>GROCERY CO.</strong>
-                 <div className="receipt-text-line" style={{ width: '90%' }}></div>
-                 <div className="receipt-text-line" style={{ width: '70%' }}></div>
-                 <div className="receipt-text-line" style={{ width: '85%' }}></div>
-                 <div className="receipt-text-line" style={{ width: '60%' }}></div>
-                 <div className="receipt-text-line" style={{ width: '95%' }}></div>
-                 <br/><br/>
-                 <div className="receipt-text-line" style={{ width: '40%' }}></div>
-               </div>
-               
-               <div className="app-card-rendered">
-                 <h3 style={{ marginBottom: '16px' }}>Added to Pantry</h3>
-                 <div className="app-item-row"><div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#4ade80' }}></div> Fresh Spinach (1 bag)</div>
-                 <div className="app-item-row"><div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#facc15' }}></div> Cheddar Cheese (1 lb)</div>
-                 <div className="app-item-row"><div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#f87171' }}></div> Ground Beef (2 lbs)</div>
-                 <button style={{ width: '100%', padding: '12px', background: '#333', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}>Confirm Items</button>
-               </div>
+            <div className={`story-visual ${isStoryTriggered ? 'triggered' : ''}`} style={{ background: 'transparent', border: 'none' }}>
+               <MagicSnapAnimation isTriggered={isStoryTriggered} />
             </div>
           </div>
         </div>
@@ -182,7 +166,9 @@ export default function Landing() {
              <div className="bento-bg"></div>
              <h3>Realtime Sync</h3>
              <p>A change on your phone updates your partner's phone instantaneously. Zero refresh required.</p>
-             <div className="bento-visual-placeholder"></div>
+             <div className="bento-visual-placeholder">
+               <SyncCanvas />
+             </div>
           </div>
           <div className="bento-card bento-tall theme-card">
              <div className="bento-bg"></div>
@@ -208,13 +194,13 @@ export default function Landing() {
         <div className="footer-content">
           <h2>Ready to track?</h2>
           <div className="magnetic-button-wrap" ref={magneticRef}>
-            <Link to="/login" className="magnetic-button">
+            <button onClick={() => startTransition('/login?mode=signup')} className="magnetic-button" style={{ border: 'none', cursor: 'pointer' }}>
               Get Started Free
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="5" y1="12" x2="19" y2="12"></line>
                 <polyline points="12 5 19 12 12 19"></polyline>
               </svg>
-            </Link>
+            </button>
           </div>
         </div>
       </footer>

@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import './Auth.css';
 
 export default function Auth() {
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -10,6 +12,13 @@ export default function Auth() {
   const [lastName, setLastName] = useState('');
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('mode') === 'signup') {
+      setIsLogin(false);
+    }
+  }, [location.search]);
 
   const handleAuth = async (e) => {
     e.preventDefault();

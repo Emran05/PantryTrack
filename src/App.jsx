@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PantryProvider, usePantry } from './contexts/PantryContext';
 import { ToastProvider } from './components/ToastContext';
 import { getSavedTheme, applyTheme } from './lib/themes';
+import { TransitionProvider } from './contexts/TransitionContext';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import Landing from './pages/Landing';
@@ -79,9 +80,11 @@ export default function App() {
     <AuthProvider>
       <PantryProvider>
         <BrowserRouter>
-          <ToastProvider>
-            <AppContent />
-          </ToastProvider>
+          <TransitionProvider>
+            <ToastProvider>
+              <AppContent />
+            </ToastProvider>
+          </TransitionProvider>
         </BrowserRouter>
       </PantryProvider>
     </AuthProvider>

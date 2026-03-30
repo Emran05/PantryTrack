@@ -76,7 +76,7 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: var(--space-xl);
+  padding: calc(80px + var(--space-xl)) var(--space-xl) var(--space-xl);
   perspective: 1000px;
 }
 
@@ -176,14 +176,12 @@
 
 /* Scroll Story Section */
 .scroll-story {
-  min-height: 200vh;
   position: relative;
+  padding: 80px 0;
 }
 
 .scroll-sticky {
-  position: sticky;
-  top: 0;
-  height: 100vh;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -292,7 +290,7 @@
 
 /* Bento Grid */
 .bento-section {
-  padding: 120px var(--space-xl);
+  padding: 60px var(--space-xl) 120px;
   max-width: 1200px;
   margin: 0 auto;
 }
