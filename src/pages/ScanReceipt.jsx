@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { addPantryItem } from '../lib/storage';
+import { addPantryItem } from '../lib/supabaseStorage';
+import { usePantry } from '../contexts/PantryContext';
 import { CATEGORIES, UNITS } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
 import './ScanReceipt.css';
@@ -28,6 +29,7 @@ function mockParseReceipt() {
 
 export default function ScanReceipt() {
   const navigate = useNavigate();
+  const { activePantry } = usePantry();
   const fileInputRef = useRef(null);
   const [preview, setPreview] = useState(null);
   const [parsedItems, setParsedItems] = useState([]);
@@ -65,19 +67,29 @@ export default function ScanReceipt() {
     );
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    if (!activePantry) return;
+    
+    setIsProcessing(true);
     const selected = parsedItems.filter((item) => item._selected);
-    selected.forEach((item) => {
-      addPantryItem({
-        name: item.name,
-        category: item.category,
-        quantity: item.quantity,
-        unit: item.unit,
-      });
-    });
-    setIsDone(true);
-    showToast(`${selected.length} item${selected.length !== 1 ? 's' : ''} added to pantry`);
-    setTimeout(() => navigate('/'), 1200);
+    try {
+      for (const item of selected) {
+        await addPantryItem(activePantry.id, {
+          name: item.name,
+          category: item.category,
+          quantity: item.quantity,
+          unit: item.unit,
+        });
+      }
+      setIsDone(true);
+      showToast(`${selected.length} item${selected.length !== 1 ? 's' : ''} added to pantry`);
+      setTimeout(() => navigate('/'), 1200);
+    } catch (error) {
+      console.error(error);
+      showToast('Error importing items');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const selectedCount = parsedItems.filter((i) => i._selected).length;

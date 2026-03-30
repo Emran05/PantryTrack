@@ -1,15 +1,32 @@
-import { useState, useMemo } from 'react';
-import { getPantryItems } from '../lib/storage';
-import { addShoppingItem } from '../lib/storage';
+import { useState, useMemo, useEffect } from 'react';
+import { getPantryItems, addShoppingItem } from '../lib/supabaseStorage';
+import { usePantry } from '../contexts/PantryContext';
 import { getRecipeSuggestions } from '../lib/recipes';
 import { getExpirationStatus, getDaysUntilExpiration } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
 import './Recipes.css';
 
 export default function Recipes() {
-  const [items] = useState(() => getPantryItems());
+  const { activePantry } = usePantry();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
   const { showToast } = useToast();
+
+  useEffect(() => {
+    async function load() {
+      if (!activePantry) return;
+      setLoading(true);
+      try {
+        const data = await getPantryItems(activePantry.id);
+        setItems(data);
+      } catch (err) {
+        console.error('Failed to load items for recipes', err);
+      }
+      setLoading(false);
+    }
+    load();
+  }, [activePantry]);
 
   const suggestions = useMemo(() => getRecipeSuggestions(items), [items]);
 
@@ -25,13 +42,18 @@ export default function Recipes() {
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
-  const handleAddMissing = (e, recipe) => {
+  const handleAddMissing = async (e, recipe) => {
     e.stopPropagation();
-    if (recipe.missing.length === 0) return;
-    recipe.missing.forEach((ingredient) => {
-      addShoppingItem({ name: ingredient, quantity: 1, unit: 'pcs' });
-    });
-    showToast(`${recipe.missing.length} item${recipe.missing.length !== 1 ? 's' : ''} added to shopping list`);
+    if (recipe.missing.length === 0 || !activePantry) return;
+    try {
+      for (const ingredient of recipe.missing) {
+        await addShoppingItem(activePantry.id, { name: ingredient, quantity: 1, unit: 'pcs' });
+      }
+      showToast(`${recipe.missing.length} item${recipe.missing.length !== 1 ? 's' : ''} added to shopping list`);
+    } catch (err) {
+      console.error(err);
+      showToast('Error adding to shopping list');
+    }
   };
 
   return (
