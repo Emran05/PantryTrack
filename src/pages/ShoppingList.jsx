@@ -1,48 +1,67 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   getShoppingList,
   addShoppingItem,
   deleteShoppingItem,
-  toggleShoppingItem,
+  updateShoppingItem,
   moveCheckedToPantry,
-} from '../lib/storage';
+} from '../lib/supabaseStorage';
+import { usePantry } from '../contexts/PantryContext';
 import { UNITS } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import './ShoppingList.css';
 
 export default function ShoppingList() {
-  const [items, setItems] = useState(() => getShoppingList());
+  const { activePantry } = usePantry();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [unit, setUnit] = useState('pcs');
   const { showToast } = useToast();
 
-  const refresh = useCallback(() => setItems(getShoppingList()), []);
+  const refresh = useCallback(async () => {
+    if (activePantry) {
+      const data = await getShoppingList(activePantry.id);
+      setItems(data);
+    }
+  }, [activePantry]);
 
-  const handleAdd = (e) => {
+  useEffect(() => {
+    if (activePantry) {
+      setLoading(true);
+      refresh().finally(() => setLoading(false));
+    }
+  }, [activePantry, refresh]);
+
+  useRealtimeSync(activePantry?.id, 'shopping_items', refresh);
+
+  const handleAdd = async (e) => {
     e.preventDefault();
-    if (!name.trim()) return;
-    addShoppingItem({ name: name.trim(), quantity, unit });
+    if (!name.trim() || !activePantry) return;
+    await addShoppingItem(activePantry.id, { name: name.trim(), quantity, unit });
     showToast(`"${name.trim()}" added to list`);
     setName('');
     setQuantity(1);
     refresh();
   };
 
-  const handleToggle = (id) => {
-    toggleShoppingItem(id);
+  const handleToggle = async (id, currentChecked) => {
+    await updateShoppingItem(id, { isChecked: !currentChecked });
     refresh();
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     const item = items.find((i) => i.id === id);
-    deleteShoppingItem(id);
+    await deleteShoppingItem(id);
     refresh();
     showToast(`"${item?.name || 'Item'}" removed`);
   };
 
-  const handleMoveToPantry = () => {
-    const count = moveCheckedToPantry();
+  const handleMoveToPantry = async () => {
+    if (!activePantry) return;
+    const count = await moveCheckedToPantry(activePantry.id);
     if (count > 0) {
       refresh();
       showToast(`${count} item${count !== 1 ? 's' : ''} moved to pantry`);
@@ -98,7 +117,7 @@ export default function ShoppingList() {
               <div key={item.id} className="shopping-item animate-fade-in">
                 <button
                   className="shopping-check"
-                  onClick={() => handleToggle(item.id)}
+                  onClick={() => handleToggle(item.id, item.isChecked)}
                   aria-label="Mark as bought"
                 >
                   <span className="shopping-check-box" />
@@ -133,7 +152,7 @@ export default function ShoppingList() {
               <div key={item.id} className="shopping-item checked animate-fade-in">
                 <button
                   className="shopping-check"
-                  onClick={() => handleToggle(item.id)}
+                  onClick={() => handleToggle(item.id, item.isChecked)}
                   aria-label="Unmark"
                 >
                   <span className="shopping-check-box checked" />

@@ -1,24 +1,40 @@
-import { useState, useCallback } from 'react';
-import { getPantryItems, deletePantryItem } from '../lib/storage';
+import { useState, useCallback, useEffect } from 'react';
+import { getPantryItems, deletePantryItem } from '../lib/supabaseStorage';
+import { usePantry } from '../contexts/PantryContext';
 import { CATEGORIES } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
 import SearchBar from '../components/SearchBar';
 import ItemCard from '../components/ItemCard';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import './Pantry.css';
 
 export default function Pantry() {
-  const [items, setItems] = useState(() => getPantryItems());
+  const { activePantry } = usePantry();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const { showToast } = useToast();
 
-  const refresh = useCallback(() => {
-    setItems(getPantryItems());
-  }, []);
+  const refresh = useCallback(async () => {
+    if (activePantry) {
+      const data = await getPantryItems(activePantry.id);
+      setItems(data);
+    }
+  }, [activePantry]);
 
-  const handleDelete = useCallback((id) => {
+  useEffect(() => {
+    if (activePantry) {
+      setLoading(true);
+      refresh().finally(() => setLoading(false));
+    }
+  }, [activePantry, refresh]);
+
+  useRealtimeSync(activePantry?.id, 'pantry_items', refresh);
+
+  const handleDelete = useCallback(async (id) => {
     const item = items.find((i) => i.id === id);
-    deletePantryItem(id);
+    await deletePantryItem(id);
     refresh();
     showToast(`"${item?.name || 'Item'}" removed`);
   }, [items, refresh, showToast]);
@@ -32,6 +48,13 @@ export default function Pantry() {
   // Count items per category for filter badges
   const categoryCounts = items.reduce((acc, item) => {
     acc[item.category] = (acc[item.category] || 0) + 1;
+    return acc;
+  }, {});
+
+  const groupedItems = filtered.reduce((acc, item) => {
+    const area = item.areaName || 'Unassigned';
+    if (!acc[area]) acc[area] = [];
+    acc[area].push(item);
     return acc;
   }, {});
 
@@ -67,8 +90,17 @@ export default function Pantry() {
 
       <div className="pantry-list">
         {filtered.length > 0 ? (
-          filtered.map((item) => (
-            <ItemCard key={item.id} item={item} onDelete={handleDelete} />
+          Object.entries(groupedItems)
+            .sort(([a], [b]) => (a === 'Unassigned' ? 1 : b === 'Unassigned' ? -1 : a.localeCompare(b)))
+            .map(([area, areaItems]) => (
+              <div key={area} className="pantry-area-group">
+                <h3 className="pantry-area-title" style={{ marginTop: '16px', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  {area}
+                </h3>
+                {areaItems.map((item) => (
+                  <ItemCard key={item.id} item={item} onDelete={handleDelete} />
+                ))}
+            </div>
           ))
         ) : (
           <div className="empty-state animate-fade-in">

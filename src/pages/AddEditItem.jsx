@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getPantryItems, addPantryItem, updatePantryItem } from '../lib/storage';
+import { getPantryItems, addPantryItem, updatePantryItem, getAreas } from '../lib/supabaseStorage';
+import { usePantry } from '../contexts/PantryContext';
 import { CATEGORIES, UNITS } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
 import './AddEditItem.css';
@@ -9,6 +10,7 @@ export default function AddEditItem() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { activePantry } = usePantry();
   const isEditing = id && id !== 'new';
 
   const [form, setForm] = useState({
@@ -18,41 +20,63 @@ export default function AddEditItem() {
     unit: 'pcs',
     expirationDate: '',
     notes: '',
+    area_id: '',
   });
 
+  const [loading, setLoading] = useState(isEditing);
+  const [areas, setAreas] = useState([]);
+
   useEffect(() => {
-    if (isEditing) {
-      const items = getPantryItems();
-      const item = items.find((i) => i.id === id);
-      if (item) {
-        setForm({
-          name: item.name,
-          category: item.category,
-          quantity: item.quantity,
-          unit: item.unit,
-          expirationDate: item.expirationDate || '',
-          notes: item.notes || '',
-        });
+    async function load() {
+      if (!activePantry) return;
+      try {
+        const fetchedAreas = await getAreas(activePantry.id);
+        setAreas(fetchedAreas || []);
+
+        if (isEditing) {
+          const items = await getPantryItems(activePantry.id);
+          const item = items.find((i) => String(i.id) === String(id));
+          if (item) {
+            setForm({
+              name: item.name,
+              category: item.category,
+              quantity: item.quantity,
+              unit: item.unit,
+              expirationDate: item.expirationDate || '',
+              notes: item.notes || '',
+              area_id: item.area_id || '',
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load item or areas', err);
       }
+      setLoading(false);
     }
-  }, [id, isEditing]);
+    load();
+  }, [id, isEditing, activePantry]);
 
   const handleChange = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => ({ ...prev, [field]: value === 'null' ? null : value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name.trim()) return;
+    if (!form.name.trim() || !activePantry) return;
 
-    if (isEditing) {
-      updatePantryItem(id, form);
-      showToast(`"${form.name}" updated`);
-    } else {
-      addPantryItem(form);
-      showToast(`"${form.name}" added to pantry`);
+    try {
+      if (isEditing) {
+        await updatePantryItem(id, form);
+        showToast(`"${form.name}" updated`);
+      } else {
+        await addPantryItem(activePantry.id, form);
+        showToast(`"${form.name}" added to pantry`);
+      }
+      navigate('/');
+    } catch (err) {
+      console.error(err);
+      showToast('Error saving item');
     }
-    navigate('/');
   };
 
   return (
@@ -61,7 +85,10 @@ export default function AddEditItem() {
         <h2 className="page-title">{isEditing ? 'Edit Item' : 'Add Item'}</h2>
         <p className="page-subtitle">{isEditing ? 'Update your item details' : 'Add a new item to your pantry'}</p>
 
-        <form className="item-form" onSubmit={handleSubmit}>
+        {loading ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>Loading item details...</div>
+        ) : (
+          <form className="item-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label htmlFor="name">Item Name</label>
             <input
@@ -129,6 +156,23 @@ export default function AddEditItem() {
             />
           </div>
 
+          {areas.length > 0 && (
+            <div className="form-group">
+              <label htmlFor="area_id">Area</label>
+              <select
+                id="area_id"
+                value={form.area_id || ''}
+                onChange={(e) => handleChange('area_id', e.target.value)}
+                style={{ width: '100%', padding: 'var(--space-md)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}
+              >
+                <option value="">No specific area</option>
+                {areas.map(a => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="form-group">
             <label htmlFor="notes">Notes (optional)</label>
             <textarea
@@ -148,7 +192,8 @@ export default function AddEditItem() {
               Cancel
             </button>
           </div>
-        </form>
+          </form>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,9 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getPantryItems } from '../lib/storage';
+import { getPantryItems } from '../lib/supabaseStorage';
+import { usePantry } from '../contexts/PantryContext';
 import { CATEGORIES, getExpirationStatus, getDaysUntilExpiration, getCategoryInfo } from '../lib/helpers';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import './Dashboard.css';
 
 // --- Animated SVG Icons ---
@@ -97,10 +99,28 @@ function DonutChart({ segments, size = 120, strokeWidth = 14 }) {
 }
 
 export default function Dashboard() {
-  const [items] = useState(() => getPantryItems());
+  const { activePantry } = usePantry();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activePopup, setActivePopup] = useState(null);
   const [animatedCard, setAnimatedCard] = useState(null);
   const navigate = useNavigate();
+
+  const fetchItems = () => {
+    if (activePantry) {
+      getPantryItems(activePantry.id).then(data => {
+        setItems(data);
+        setLoading(false);
+      });
+    }
+  };
+
+  useEffect(() => {
+    setLoading(true);
+    fetchItems();
+  }, [activePantry]);
+
+  useRealtimeSync(activePantry?.id, 'pantry_items', fetchItems);
 
   const handleHighlightClick = (cardId) => {
     setAnimatedCard(cardId);
