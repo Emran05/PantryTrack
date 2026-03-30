@@ -1,0 +1,58 @@
+.fruit-transition-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fruit-item {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translate(-100%, -50%) rotate(0deg);
+  animation-name: flyAcross;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-fill-mode: forwards;
+  will-change: transform, left;
+  line-height: 1;
+}
+
+@keyframes flyAcross {
+  0% {
+    left: -20%;
+    transform: rotate(0deg) scale(0.5);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+    transform: rotate(90deg) scale(1.2);
+  }
+  80% {
+    opacity: 1;
+    transform: rotate(270deg) scale(1.2);
+  }
+  100% {
+    left: 120%;
+    transform: rotate(360deg) scale(0.5);
+    opacity: 0;
+  }
+}
+
+.transition-bg-flash {
+  position: absolute;
+  inset: 0;
+  background: white;
+  opacity: 0;
+  animation: flashBg 1s ease-in-out forwards;
+}
+
+@keyframes flashBg {
+  0% { opacity: 0; backdrop-filter: blur(0px); }
+  40% { opacity: 0.1; backdrop-filter: blur(10px); }
+  60% { opacity: 0.1; backdrop-filter: blur(10px); }
+  100% { opacity: 0; backdrop-filter: blur(0px); }
+}
