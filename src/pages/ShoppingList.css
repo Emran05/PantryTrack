@@ -168,6 +168,13 @@
   flex-shrink: 0;
 }
 
+/* Always show delete on touch devices (no hover) */
+@media (hover: none) {
+  .shopping-item-delete {
+    opacity: 0.6;
+  }
+}
+
 .shopping-item:hover .shopping-item-delete {
   opacity: 1;
 }

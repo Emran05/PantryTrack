@@ -1,6 +1,6 @@
 /* ---- Expiring Banner ---- */
 .expiring-banner {
-  background: color-mix(in srgb, var(--color-warning) 8%, var(--color-surface));
+  background: color-mix(in srgb, var(--color-warning) 8%, var(--color-bg-secondary));
   border: 1px solid color-mix(in srgb, var(--color-warning) 20%, transparent);
   border-radius: var(--radius-lg);
   padding: var(--space-md);
@@ -34,7 +34,7 @@
   background: color-mix(in srgb, var(--color-warning) 15%, transparent);
   font-size: var(--font-size-xs);
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--color-text-primary);
 }
 
 .expiring-banner-days {
@@ -199,4 +199,19 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   margin-top: var(--space-sm);
+}
+
+/* ---- Add Missing Button ---- */
+.recipe-add-missing {
+  width: 100%;
+  font-size: var(--font-size-xs);
+  padding: var(--space-sm) var(--space-md);
+  margin-top: var(--space-sm);
+  justify-content: center;
+  gap: var(--space-xs);
+  border-radius: var(--radius-md);
+}
+
+.recipe-add-missing:active {
+  transform: scale(0.97);
 }
