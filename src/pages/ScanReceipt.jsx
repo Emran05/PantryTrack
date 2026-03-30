@@ -1,31 +1,10 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { addPantryItem } from '../lib/supabaseStorage';
+import { addPantryItem, processReceiptImage } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
 import { CATEGORIES, UNITS } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
 import './ScanReceipt.css';
-
-// Mock OCR: simulates parsing a receipt image into grocery items.
-// In production, replace with Google Vision / Tesseract.js / OpenAI Vision API.
-function mockParseReceipt() {
-  const possibleItems = [
-    { name: 'Eggs (12ct)', category: 'dairy', quantity: 1, unit: 'boxes' },
-    { name: 'Bread (Whole Wheat)', category: 'grains', quantity: 1, unit: 'pcs' },
-    { name: 'Cheddar Cheese', category: 'dairy', quantity: 1, unit: 'lbs' },
-    { name: 'Tomatoes', category: 'produce', quantity: 4, unit: 'pcs' },
-    { name: 'Pasta (Penne)', category: 'grains', quantity: 1, unit: 'boxes' },
-    { name: 'Ground Beef', category: 'meat', quantity: 1, unit: 'lbs' },
-    { name: 'Orange Juice', category: 'beverages', quantity: 1, unit: 'bottles' },
-    { name: 'Spinach', category: 'produce', quantity: 1, unit: 'bags' },
-    { name: 'Frozen Pizza', category: 'frozen', quantity: 2, unit: 'pcs' },
-    { name: 'Sour Cream', category: 'dairy', quantity: 1, unit: 'cups' },
-  ];
-  // Return a random subset of 4-7 items to simulate real scans
-  const count = 4 + Math.floor(Math.random() * 4);
-  const shuffled = [...possibleItems].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, count);
-}
 
 export default function ScanReceipt() {
   const navigate = useNavigate();
@@ -42,15 +21,31 @@ export default function ScanReceipt() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      setPreview(ev.target.result);
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target.result;
+      setPreview(dataUrl);
       setIsProcessing(true);
-      // Simulate OCR processing delay
-      setTimeout(() => {
-        const items = mockParseReceipt();
-        setParsedItems(items.map((item, i) => ({ ...item, _key: i, _selected: true })));
+      
+      const mimeType = dataUrl.substring(dataUrl.indexOf(':') + 1, dataUrl.indexOf(';'));
+      const imageBase64 = dataUrl.substring(dataUrl.indexOf(',') + 1);
+
+      try {
+        const items = await processReceiptImage(imageBase64, mimeType);
+        
+        setParsedItems(items.map((item, i) => ({ 
+          ...item, 
+          _key: i, 
+          _selected: true,
+          category: CATEGORIES.find(c => c.id === item.category) ? item.category : 'other',
+          unit: UNITS.includes(item.unit) ? item.unit : 'pcs'
+        })));
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to parse receipt. Please try again.');
+        setPreview(null);
+      } finally {
         setIsProcessing(false);
-      }, 1500);
+      }
     };
     reader.readAsDataURL(file);
   };

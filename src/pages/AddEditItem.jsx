@@ -25,6 +25,7 @@ export default function AddEditItem() {
 
   const [loading, setLoading] = useState(isEditing);
   const [areas, setAreas] = useState([]);
+  const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -55,6 +56,47 @@ export default function AddEditItem() {
     }
     load();
   }, [id, isEditing, activePantry]);
+
+  // Handle barcode scanning startup and teardown
+  useEffect(() => {
+    if (!scanning) return;
+
+    import('html5-qrcode').then(({ Html5QrcodeScanner }) => {
+      const scanner = new Html5QrcodeScanner('reader', {
+        qrbox: { width: 250, height: 250 },
+        fps: 5,
+      }, false);
+
+      scanner.render(
+        async (decodedText) => {
+          scanner.clear();
+          setScanning(false);
+          try {
+            const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${decodedText}`);
+            const data = await res.json();
+            if (data.status === 1 && data.product) {
+              setForm(prev => ({ ...prev, name: data.product.product_name || prev.name }));
+              showToast(`Found: ${data.product.product_name}`);
+            } else {
+              showToast('Product not found in database');
+            }
+          } catch (e) {
+            console.error(e);
+            showToast('Error looking up product');
+          }
+        },
+        () => {} // Ignore scan errors per frame
+      );
+
+      return () => {
+        scanner.clear().catch(console.error);
+      };
+    }).catch(err => {
+      console.error('Failed to load html5-qrcode', err);
+      showToast('Scanner failed to load');
+      setScanning(false);
+    });
+  }, [scanning, showToast]);
 
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value === 'null' ? null : value }));
@@ -89,6 +131,24 @@ export default function AddEditItem() {
           <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>Loading item details...</div>
         ) : (
           <form className="item-form" onSubmit={handleSubmit}>
+          {!isEditing && (
+            <div className="barcode-scanner-section">
+              {scanning ? (
+                <div className="scanner-container">
+                  <div id="reader" className="scanner-reader"></div>
+                  <button type="button" className="btn secondary full-width" onClick={() => setScanning(false)} style={{ marginTop: '1rem' }}>Cancel</button>
+                </div>
+              ) : (
+                <button type="button" className="btn outline full-width scan-barcode-btn" onClick={() => setScanning(true)}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
+                    <path d="M4 7V4h3M20 7V4h-3M4 17v3h3M20 17v3h-3M9 8v8M12 8v8M15 8v8"/>
+                  </svg>
+                  Scan Barcode
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="form-group">
             <label htmlFor="name">Item Name</label>
             <input
