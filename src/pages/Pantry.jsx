@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { getPantryItems, deletePantryItem } from '../lib/storage';
 import { CATEGORIES } from '../lib/helpers';
+import { useToast } from '../components/ToastContext';
 import SearchBar from '../components/SearchBar';
 import ItemCard from '../components/ItemCard';
 import './Pantry.css';
@@ -9,15 +10,18 @@ export default function Pantry() {
   const [items, setItems] = useState(() => getPantryItems());
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
+  const { showToast } = useToast();
 
   const refresh = useCallback(() => {
     setItems(getPantryItems());
   }, []);
 
   const handleDelete = useCallback((id) => {
+    const item = items.find((i) => i.id === id);
     deletePantryItem(id);
     refresh();
-  }, [refresh]);
+    showToast(`"${item?.name || 'Item'}" removed`);
+  }, [items, refresh, showToast]);
 
   const filtered = items.filter((item) => {
     const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());

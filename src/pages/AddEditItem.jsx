@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getPantryItems, addPantryItem, updatePantryItem } from '../lib/storage';
 import { CATEGORIES, UNITS } from '../lib/helpers';
+import { useToast } from '../components/ToastContext';
 import './AddEditItem.css';
 
 export default function AddEditItem() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const isEditing = id && id !== 'new';
 
   const [form, setForm] = useState({
@@ -45,8 +47,10 @@ export default function AddEditItem() {
 
     if (isEditing) {
       updatePantryItem(id, form);
+      showToast(`"${form.name}" updated`);
     } else {
       addPantryItem(form);
+      showToast(`"${form.name}" added to pantry`);
     }
     navigate('/');
   };

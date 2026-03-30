@@ -7,6 +7,7 @@ import {
   moveCheckedToPantry,
 } from '../lib/storage';
 import { UNITS } from '../lib/helpers';
+import { useToast } from '../components/ToastContext';
 import './ShoppingList.css';
 
 export default function ShoppingList() {
@@ -14,6 +15,7 @@ export default function ShoppingList() {
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [unit, setUnit] = useState('pcs');
+  const { showToast } = useToast();
 
   const refresh = useCallback(() => setItems(getShoppingList()), []);
 
@@ -21,6 +23,7 @@ export default function ShoppingList() {
     e.preventDefault();
     if (!name.trim()) return;
     addShoppingItem({ name: name.trim(), quantity, unit });
+    showToast(`"${name.trim()}" added to list`);
     setName('');
     setQuantity(1);
     refresh();
@@ -32,13 +35,18 @@ export default function ShoppingList() {
   };
 
   const handleDelete = (id) => {
+    const item = items.find((i) => i.id === id);
     deleteShoppingItem(id);
     refresh();
+    showToast(`"${item?.name || 'Item'}" removed`);
   };
 
   const handleMoveToPantry = () => {
     const count = moveCheckedToPantry();
-    if (count > 0) refresh();
+    if (count > 0) {
+      refresh();
+      showToast(`${count} item${count !== 1 ? 's' : ''} moved to pantry`);
+    }
   };
 
   const unchecked = items.filter((i) => !i.isChecked);

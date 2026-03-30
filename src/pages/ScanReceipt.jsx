@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { addPantryItem } from '../lib/storage';
 import { CATEGORIES, UNITS } from '../lib/helpers';
+import { useToast } from '../components/ToastContext';
 import './ScanReceipt.css';
 
 // Mock OCR: simulates parsing a receipt image into grocery items.
@@ -32,6 +33,7 @@ export default function ScanReceipt() {
   const [parsedItems, setParsedItems] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDone, setIsDone] = useState(false);
+  const { showToast } = useToast();
 
   const handleCapture = (e) => {
     const file = e.target.files?.[0];
@@ -74,6 +76,7 @@ export default function ScanReceipt() {
       });
     });
     setIsDone(true);
+    showToast(`${selected.length} item${selected.length !== 1 ? 's' : ''} added to pantry`);
     setTimeout(() => navigate('/'), 1200);
   };
 
