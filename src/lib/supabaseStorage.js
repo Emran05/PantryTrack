@@ -1,5 +1,32 @@
 import { supabase } from './supabase';
 
+// --- Profiles ---
+
+export async function getProfile(userId) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+  
+  if (error && error.code !== 'PGRST116') {
+    throw error;
+  }
+  return data;
+}
+
+export async function updateProfile(userId, updates) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('id', userId)
+    .select()
+    .single();
+    
+  if (error) throw error;
+  return data;
+}
+
 // --- Pantries & Members ---
 
 export async function getUserPantries() {
@@ -257,4 +284,12 @@ export async function moveCheckedToPantry(pantryId) {
   }
   
   return checked.length;
+}
+
+export async function processReceiptImage(imageBase64, mimeType = 'image/jpeg') {
+  const { data, error } = await supabase.functions.invoke('process-receipt', {
+    body: { imageBase64, mimeType }
+  });
+  if (error) throw error;
+  return data.items || [];
 }

@@ -11,13 +11,13 @@
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
-  padding: var(--space-xxl);
+  padding: var(--space-xl);
   width: 100%;
   max-width: 400px;
   box-shadow: var(--shadow-lg);
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  gap: var(--space-md);
 }
 
 .auth-title {
@@ -48,7 +48,6 @@
   display: flex;
   align-items: center;
   text-align: center;
-  margin: var(--space-md) 0;
   color: var(--color-text-secondary);
   font-size: 0.85rem;
 }
@@ -80,7 +79,7 @@
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg);
+  gap: var(--space-md);
 }
 
 .auth-form label {

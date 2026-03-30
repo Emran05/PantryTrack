@@ -6,6 +6,8 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState(null);
 
@@ -19,7 +21,16 @@ export default function Auth() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       authError = error;
     } else {
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName
+          }
+        }
+      });
       authError = error;
     }
 
@@ -56,7 +67,7 @@ export default function Auth() {
           className="btn btn-secondary auth-google-btn" 
           onClick={handleGoogleSignIn}
           disabled={loading}
-          style={{ width: '100%', marginBottom: 'var(--space-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -72,6 +83,30 @@ export default function Auth() {
         </div>
 
         <form onSubmit={handleAuth} className="auth-form">
+          {!isLogin && (
+            <div style={{ display: 'flex', gap: 'var(--space-md)' }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>First Name</label>
+                <input
+                  type="text"
+                  required
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Jane"
+                />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>Last Name</label>
+                <input
+                  type="text"
+                  required
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Doe"
+                />
+              </div>
+            </div>
+          )}
           <div className="form-group">
             <label>Email</label>
             <input

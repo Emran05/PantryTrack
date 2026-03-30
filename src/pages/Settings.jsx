@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usePantry } from '../contexts/PantryContext';
-import { createPantry, inviteMemberByEmail, getAreas, createArea, deleteArea } from '../lib/supabaseStorage';
+import { createPantry, inviteMemberByEmail, getAreas, createArea, deleteArea, getProfile, updateProfile } from '../lib/supabaseStorage';
 import { useToast } from '../components/ToastContext';
 import ThemePicker from '../components/ThemePicker';
 import './Settings.css';
@@ -11,13 +11,33 @@ export default function Settings() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { user, signOut } = useAuth();
-  const { pantries, activePantry, refreshPantries } = usePantry();
+  const { pantries, activePantry, refreshPantries, switchPantry } = usePantry();
   
+  const [profile, setProfile] = useState({ first_name: '', last_name: '', venmo_handle: '' });
   const [newHomeName, setNewHomeName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [areas, setAreas] = useState([]);
   const [newAreaName, setNewAreaName] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    async function fetchProfile() {
+      if (!user) return;
+      try {
+        const data = await getProfile(user.id);
+        if (data) {
+          setProfile({
+            first_name: data.first_name || '',
+            last_name: data.last_name || '',
+            venmo_handle: data.venmo_handle || ''
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load profile:', err);
+      }
+    }
+    fetchProfile();
+  }, [user]);
 
   useEffect(() => {
     async function loadAreas() {
@@ -37,13 +57,28 @@ export default function Settings() {
     navigate('/');
   };
 
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    if (!user) return;
+    setLoading(true);
+    try {
+      await updateProfile(user.id, profile);
+      showToast('Profile updated!');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to update profile');
+    }
+    setLoading(false);
+  };
+
   const handleCreateHome = async (e) => {
     e.preventDefault();
     if (!newHomeName.trim()) return;
     setLoading(true);
     try {
-      await createPantry(newHomeName.trim());
+      const pantry = await createPantry(newHomeName.trim());
       await refreshPantries();
+      switchPantry(pantry.id); // switch immediately to the new home
       setNewHomeName('');
       showToast('New home created!');
     } catch (err) {
@@ -104,13 +139,33 @@ export default function Settings() {
         <p className="page-subtitle">App preferences & account</p>
 
         <div className="settings-section">
-          <h3 className="settings-section-title">Account</h3>
+          <h3 className="settings-section-title">Profile & Account</h3>
           <div className="settings-card card">
-            <div className="settings-row">
-              <span className="settings-label">Email</span>
-              <span className="settings-value">{user?.email || 'Guest'}</span>
-            </div>
-            <button className="btn btn-secondary btn-full" onClick={handleSignOut} style={{ marginTop: 'var(--space-md)' }}>
+            <form onSubmit={handleUpdateProfile} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
+                <span className="settings-label">Email</span>
+                <span className="settings-value">{user?.email || 'Guest'}</span>
+              </div>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label className="settings-label" style={{ fontSize: '0.9rem' }}>First Name</label>
+                  <input type="text" value={profile.first_name} onChange={e => setProfile({...profile, first_name: e.target.value})} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }} />
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label className="settings-label" style={{ fontSize: '0.9rem' }}>Last Name</label>
+                  <input type="text" value={profile.last_name} onChange={e => setProfile({...profile, last_name: e.target.value})} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label className="settings-label" style={{ fontSize: '0.9rem' }}>Venmo Handle</label>
+                <input type="text" placeholder="@venmo_handle" value={profile.venmo_handle} onChange={e => setProfile({...profile, venmo_handle: e.target.value})} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }} />
+              </div>
+              <button type="submit" className="btn btn-primary" disabled={loading}>
+                Save Profile
+              </button>
+            </form>
+            <div style={{ height: '1px', background: 'var(--color-border)', margin: '16px 0' }} />
+            <button className="btn btn-secondary btn-full" onClick={handleSignOut}>
               Log out
             </button>
           </div>
@@ -121,8 +176,26 @@ export default function Settings() {
           <div className="settings-card card">
             <div className="homes-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
               {pantries.map(p => (
-                <div key={p.id} className="settings-row" style={{ background: p.id === activePantry?.id ? 'var(--color-bg-card-hover)' : 'transparent', padding: '8px', borderRadius: '8px' }}>
-                  <span className="settings-label">{p.name} {p.id === activePantry?.id && '(Active)'}</span>
+                <div key={p.id} className="settings-row" style={{ 
+                  background: p.id === activePantry?.id ? 'var(--color-primary)' : 'var(--color-bg-primary)', 
+                  border: '1px solid var(--color-border)',
+                  color: p.id === activePantry?.id ? '#fff' : 'var(--color-text-primary)',
+                  padding: '12px', 
+                  borderRadius: '8px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <span className="settings-label" style={{ color: 'inherit' }}>{p.name} {p.id === activePantry?.id && '(Active)'}</span>
+                  {p.id !== activePantry?.id && (
+                    <button 
+                      onClick={() => switchPantry(p.id)}
+                      className="btn"
+                      style={{ padding: '6px 12px', fontSize: '0.8rem', background: 'transparent', border: '1px solid currentColor', color: 'inherit' }}
+                    >
+                      Switch
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
