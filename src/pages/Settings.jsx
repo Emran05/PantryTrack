@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastContext';
+import ThemePicker from '../components/ThemePicker';
 import './Settings.css';
 
 export default function Settings() {
@@ -24,6 +25,13 @@ export default function Settings() {
         <p className="page-subtitle">App preferences & information</p>
 
         <div className="settings-section">
+          <h3 className="settings-section-title">Theme</h3>
+          <div className="settings-card card">
+            <ThemePicker />
+          </div>
+        </div>
+
+        <div className="settings-section">
           <h3 className="settings-section-title">About</h3>
           <div className="settings-card card">
             <div className="settings-row">
@@ -32,7 +40,7 @@ export default function Settings() {
             </div>
             <div className="settings-row">
               <span className="settings-label">Version</span>
-              <span className="settings-value">1.0.0</span>
+              <span className="settings-value">2.0.0</span>
             </div>
             <div className="settings-row">
               <span className="settings-label">Storage</span>
