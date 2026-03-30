@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PantryProvider, usePantry } from './contexts/PantryContext';
 import { ToastProvider } from './components/ToastContext';
 import { getSavedTheme, applyTheme } from './lib/themes';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
+import Landing from './pages/Landing';
 import Pantry from './pages/Pantry';
 import AddEditItem from './pages/AddEditItem';
 import ShoppingList from './pages/ShoppingList';
@@ -36,7 +37,13 @@ function AppContent() {
   const { loading } = usePantry();
 
   if (!user) {
-    return <Auth />;
+    return (
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Auth />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
   }
 
   if (loading) {
@@ -59,6 +66,7 @@ function AppContent() {
           <Route path="/scan" element={<ScanReceipt />} />
           <Route path="/recipes" element={<Recipes />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </PageTransitionWrapper>
       <BottomNav />
