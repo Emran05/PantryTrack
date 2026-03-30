@@ -20,14 +20,21 @@ function setItems(key, items) {
   localStorage.setItem(key, JSON.stringify(items));
 }
 
+// --- Helper: get a date string N days from today ---
+function daysFromNow(n) {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString().split('T')[0];
+}
+
 // --- Demo Seed Data ---
 const SEED_ITEMS = [
-  { name: 'Whole Milk', category: 'dairy', quantity: 1, unit: 'L', expirationDate: '2026-03-28', notes: 'Organic 2%' },
-  { name: 'Bananas', category: 'produce', quantity: 6, unit: 'pcs', expirationDate: '2026-03-25', notes: '' },
-  { name: 'Chicken Breast', category: 'meat', quantity: 2, unit: 'lbs', expirationDate: '2026-03-24', notes: 'Meal prep Sunday' },
-  { name: 'Brown Rice', category: 'grains', quantity: 1, unit: 'bags', expirationDate: '2026-09-15', notes: '' },
-  { name: 'Greek Yogurt', category: 'dairy', quantity: 3, unit: 'cups', expirationDate: '2026-03-30', notes: 'Vanilla flavor' },
-  { name: 'Frozen Berries', category: 'frozen', quantity: 1, unit: 'bags', expirationDate: '2026-08-01', notes: 'For smoothies' },
+  { name: 'Whole Milk', category: 'dairy', quantity: 1, unit: 'L', expirationDate: daysFromNow(5), notes: 'Organic 2%' },
+  { name: 'Bananas', category: 'produce', quantity: 6, unit: 'pcs', expirationDate: daysFromNow(2), notes: '' },
+  { name: 'Chicken Breast', category: 'meat', quantity: 2, unit: 'lbs', expirationDate: daysFromNow(1), notes: 'Meal prep Sunday' },
+  { name: 'Brown Rice', category: 'grains', quantity: 1, unit: 'bags', expirationDate: daysFromNow(180), notes: '' },
+  { name: 'Greek Yogurt', category: 'dairy', quantity: 3, unit: 'cups', expirationDate: daysFromNow(7), notes: 'Vanilla flavor' },
+  { name: 'Frozen Berries', category: 'frozen', quantity: 1, unit: 'bags', expirationDate: daysFromNow(120), notes: 'For smoothies' },
 ];
 
 function seedIfEmpty() {
