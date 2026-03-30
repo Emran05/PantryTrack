@@ -1,8 +1,49 @@
+/* ---- Item Card Wrapper (swipe container) ---- */
+.item-card-wrapper {
+  position: relative;
+  margin-bottom: var(--space-md);
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+}
+
+.item-card-swipe-action {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-danger);
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.item-card-swipe-action.revealed {
+  opacity: 1;
+}
+
+.item-card-swipe-delete {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  color: white;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+/* ---- Item Card ---- */
 .item-card {
   position: relative;
   cursor: pointer;
   padding: var(--space-lg);
-  margin-bottom: var(--space-md);
+  margin-bottom: 0;
+  will-change: transform;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .item-card-top {
@@ -91,4 +132,11 @@
 
 .item-card-delete:hover {
   background: rgba(239, 68, 68, 0.25);
+}
+
+/* Touch devices: always show delete on mobile */
+@media (hover: none) {
+  .item-card-delete {
+    opacity: 0.6;
+  }
 }
