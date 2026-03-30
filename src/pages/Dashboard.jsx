@@ -1,8 +1,66 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getPantryItems } from '../lib/storage';
 import { CATEGORIES, getExpirationStatus, getDaysUntilExpiration, getCategoryInfo } from '../lib/helpers';
 import './Dashboard.css';
+
+// --- Animated SVG Icons ---
+function FlameIcon({ animated }) {
+  return (
+    <svg className={`highlight-svg-icon ${animated ? 'icon-bounce' : ''}`} width="28" height="28" viewBox="0 0 24 24" fill="none">
+      <path className="flame-body" d="M12 2C12 2 4 9.5 4 14.5C4 18.64 7.58 22 12 22C16.42 22 20 18.64 20 14.5C20 9.5 12 2 12 2Z" fill="url(#flameGrad)" />
+      <path className="flame-core" d="M12 22C14.21 22 16 19.76 16 17C16 14.5 12 10 12 10C12 10 8 14.5 8 17C8 19.76 9.79 22 12 22Z" fill="url(#flameCoreGrad)" />
+      <defs>
+        <linearGradient id="flameGrad" x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#ff9500" /><stop offset="1" stopColor="#ef4444" />
+        </linearGradient>
+        <linearGradient id="flameCoreGrad" x1="12" y1="10" x2="12" y2="22" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#fde047" /><stop offset="1" stopColor="#f97316" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+function PiggyIcon({ animated }) {
+  return (
+    <svg className={`highlight-svg-icon ${animated ? 'icon-bounce' : ''}`} width="28" height="28" viewBox="0 0 24 24" fill="none">
+      <ellipse className="piggy-body" cx="12" cy="13" rx="8" ry="6.5" fill="url(#piggyGrad)" />
+      <circle cx="9" cy="11.5" r="1" fill="#1a5c2e" />
+      <ellipse cx="12" cy="14.5" rx="2.5" ry="1.5" fill="#16a34a" opacity="0.5" />
+      <circle cx="11.2" cy="14.2" r="0.5" fill="#15803d" />
+      <circle cx="12.8" cy="14.2" r="0.5" fill="#15803d" />
+      <path d="M6 17L5 20" stroke="#15803d" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M18 17L19 20" stroke="#15803d" strokeWidth="1.5" strokeLinecap="round" />
+      <path className="piggy-coin" d="M17 7L19 5M19 5L21 7M19 5V9" stroke="#eab308" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <defs>
+        <linearGradient id="piggyGrad" x1="4" y1="7" x2="20" y2="20" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#4ade80" /><stop offset="1" stopColor="#22c55e" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+function BoxIcon({ animated }) {
+  return (
+    <svg className={`highlight-svg-icon ${animated ? 'icon-bounce' : ''}`} width="28" height="28" viewBox="0 0 24 24" fill="none">
+      <path className="box-body" d="M3 8L12 3L21 8V16L12 21L3 16V8Z" fill="url(#boxGrad)" stroke="url(#boxStrokeGrad)" strokeWidth="1" />
+      <path d="M3 8L12 13L21 8" stroke="#6366f1" strokeWidth="1" opacity="0.4" />
+      <path d="M12 13V21" stroke="#6366f1" strokeWidth="1" opacity="0.4" />
+      <path className="box-lid" d="M7.5 5.5L16.5 10.5" stroke="#c4b5fd" strokeWidth="1" strokeLinecap="round" opacity="0.6" />
+      <circle className="box-sparkle" cx="17" cy="5" r="1.5" fill="#a78bfa" opacity="0.7" />
+      <defs>
+        <linearGradient id="boxGrad" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#818cf8" /><stop offset="1" stopColor="#6366f1" />
+        </linearGradient>
+        <linearGradient id="boxStrokeGrad" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#a78bfa" /><stop offset="1" stopColor="#4f46e5" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
 
 // SVG Donut chart helpers
 function DonutChart({ segments, size = 120, strokeWidth = 14 }) {
@@ -40,7 +98,15 @@ function DonutChart({ segments, size = 120, strokeWidth = 14 }) {
 
 export default function Dashboard() {
   const [items] = useState(() => getPantryItems());
+  const [activePopup, setActivePopup] = useState(null);
+  const [animatedCard, setAnimatedCard] = useState(null);
   const navigate = useNavigate();
+
+  const handleHighlightClick = (cardId) => {
+    setAnimatedCard(cardId);
+    setTimeout(() => setAnimatedCard(null), 600);
+    setActivePopup(activePopup === cardId ? null : cardId);
+  };
 
   const stats = useMemo(() => {
     const total = items.length;
@@ -142,25 +208,79 @@ export default function Dashboard() {
 
       {/* Highlight Cards */}
       <div className="highlight-grid animate-fade-in">
-        <div className="highlight-card highlight-streak">
-          <div className="highlight-icon">🔥</div>
+        <div
+          className={`highlight-card highlight-streak ${animatedCard === 'streak' ? 'card-pop' : ''}`}
+          onClick={() => handleHighlightClick('streak')}
+        >
+          <div className="highlight-icon">
+            <FlameIcon animated={animatedCard === 'streak'} />
+          </div>
           <div className="highlight-value">{stats.streakDays}</div>
           <div className="highlight-label">Day Streak</div>
           <div className="highlight-detail">No waste</div>
+          {activePopup === 'streak' && (
+            <div className="highlight-popup animate-scale-in">
+              <div className="highlight-popup-title">Waste-Free Streak</div>
+              <p className="highlight-popup-desc">
+                You've gone <strong>{stats.streakDays} days</strong> without any food going to waste. Keep it up!
+              </p>
+              <div className="highlight-popup-stat">
+                <span>{stats.expired} expired</span>
+                <span>{stats.fresh} fresh</span>
+              </div>
+            </div>
+          )}
         </div>
-        <div className="highlight-card highlight-saved">
-          <div className="highlight-icon">💰</div>
+        <div
+          className={`highlight-card highlight-saved ${animatedCard === 'saved' ? 'card-pop' : ''}`}
+          onClick={() => handleHighlightClick('saved')}
+        >
+          <div className="highlight-icon">
+            <PiggyIcon animated={animatedCard === 'saved'} />
+          </div>
           <div className="highlight-value">${stats.savedEstimate}</div>
           <div className="highlight-label">Est. Saved</div>
           <div className="highlight-detail">This month</div>
+          {activePopup === 'saved' && (
+            <div className="highlight-popup animate-scale-in">
+              <div className="highlight-popup-title">Money Saved</div>
+              <p className="highlight-popup-desc">
+                By using <strong>{stats.fresh + stats.expiringSoon} items</strong> before they expired, you saved an estimated <strong>${stats.savedEstimate}</strong>.
+              </p>
+              <div className="highlight-popup-stat">
+                <span>~$3/item avg</span>
+                <span>{stats.fresh + stats.expiringSoon} used</span>
+              </div>
+            </div>
+          )}
         </div>
-        <div className="highlight-card highlight-added">
-          <div className="highlight-icon">📦</div>
+        <div
+          className={`highlight-card highlight-added ${animatedCard === 'added' ? 'card-pop' : ''}`}
+          onClick={() => handleHighlightClick('added')}
+        >
+          <div className="highlight-icon">
+            <BoxIcon animated={animatedCard === 'added'} />
+          </div>
           <div className="highlight-value">{stats.addedThisWeek}</div>
           <div className="highlight-label">Added</div>
           <div className="highlight-detail">This week</div>
+          {activePopup === 'added' && (
+            <div className="highlight-popup animate-scale-in">
+              <div className="highlight-popup-title">Weekly Activity</div>
+              <p className="highlight-popup-desc">
+                You added <strong>{stats.addedThisWeek} items</strong> this week. Your pantry has <strong>{stats.total} items</strong> total.
+              </p>
+              <div className="highlight-popup-stat">
+                <span>{stats.total} total</span>
+                <span>{stats.categories.length} categories</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Popup backdrop */}
+      {activePopup && <div className="highlight-popup-backdrop" onClick={() => setActivePopup(null)} />}
 
       {/* Stats Cards */}
       <div className="stats-grid animate-fade-in">
