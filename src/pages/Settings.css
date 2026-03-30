@@ -1,0 +1,81 @@
+.settings-page {
+  padding-bottom: var(--space-2xl);
+}
+
+.settings-section {
+  margin-bottom: var(--space-xl);
+}
+
+.settings-section-title {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: var(--space-md);
+}
+
+.settings-card {
+  padding: var(--space-lg);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) 0;
+}
+
+.settings-row + .settings-row {
+  border-top: 1px solid var(--color-border);
+}
+
+.settings-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.settings-value {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.settings-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin-bottom: var(--space-lg);
+}
+
+.settings-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.settings-confirm-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-warning);
+  font-weight: 600;
+  text-align: center;
+}
+
+.settings-confirm-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.settings-confirm-actions .btn {
+  flex: 1;
+}
+
+.settings-action-btn {
+  gap: var(--space-sm);
+}
+
+.settings-footer {
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  padding: var(--space-xl) 0;
+}
