@@ -1,9 +1,11 @@
 import { useNavigate, useLocation } from 'react-router-dom';
+import { usePantry } from '../contexts/PantryContext';
 import './Header.css';
 
 export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { pantries, activePantry, switchPantry } = usePantry();
 
   const isItemPage = location.pathname.startsWith('/item');
   const isSettingsPage = location.pathname === '/settings';
@@ -21,7 +23,17 @@ export default function Header() {
         ) : (
           <div className="header-brand">
             <span className="header-logo-mark">P</span>
-            <h1 className="header-title">Pantry</h1>
+            <div className="header-pantry-switcher">
+              <select 
+                className="pantry-select" 
+                value={activePantry?.id || ''} 
+                onChange={(e) => switchPantry(e.target.value)}
+              >
+                {pantries.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
         {!isItemPage && !isSettingsPage && (

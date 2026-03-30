@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { PantryProvider, usePantry } from './contexts/PantryContext';
 import { ToastProvider } from './components/ToastContext';
 import { getSavedTheme, applyTheme } from './lib/themes';
 import Header from './components/Header';
@@ -11,6 +13,7 @@ import Dashboard from './pages/Dashboard';
 import ScanReceipt from './pages/ScanReceipt';
 import Recipes from './pages/Recipes';
 import Settings from './pages/Settings';
+import Auth from './pages/Auth';
 import './components/Toast.css';
 
 function PageTransitionWrapper({ children }) {
@@ -28,24 +31,51 @@ function PageTransitionWrapper({ children }) {
   );
 }
 
+function AppContent() {
+  const { user } = useAuth();
+  const { loading } = usePantry();
+
+  if (!user) {
+    return <Auth />;
+  }
+
+  if (loading) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)' }}>
+        Loading home data...
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Header />
+      <PageTransitionWrapper>
+        <Routes>
+          <Route path="/" element={<Pantry />} />
+          <Route path="/item/:id" element={<AddEditItem />} />
+          <Route path="/shopping" element={<ShoppingList />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/scan" element={<ScanReceipt />} />
+          <Route path="/recipes" element={<Recipes />} />
+          <Route path="/settings" element={<Settings />} />
+        </Routes>
+      </PageTransitionWrapper>
+      <BottomNav />
+    </>
+  );
+}
+
 export default function App() {
   return (
-    <BrowserRouter>
-      <ToastProvider>
-        <Header />
-        <PageTransitionWrapper>
-          <Routes>
-            <Route path="/" element={<Pantry />} />
-            <Route path="/item/:id" element={<AddEditItem />} />
-            <Route path="/shopping" element={<ShoppingList />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/scan" element={<ScanReceipt />} />
-            <Route path="/recipes" element={<Recipes />} />
-            <Route path="/settings" element={<Settings />} />
-          </Routes>
-        </PageTransitionWrapper>
-        <BottomNav />
-      </ToastProvider>
-    </BrowserRouter>
+    <AuthProvider>
+      <PantryProvider>
+        <BrowserRouter>
+          <ToastProvider>
+            <AppContent />
+          </ToastProvider>
+        </BrowserRouter>
+      </PantryProvider>
+    </AuthProvider>
   );
 }
