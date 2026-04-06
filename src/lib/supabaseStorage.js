@@ -52,14 +52,23 @@ export async function createPantry(name) {
     .select()
     .single();
     
-  if (pantryError) throw pantryError;
+  if (pantryError) {
+    console.error('Failed to create pantry:', pantryError);
+    throw pantryError;
+  }
   
-  // Add self as owner
+  // Add self as owner — don't use .select().single() here;
+  // the SELECT RLS policy can interfere right after insert
   const { error: memberError } = await supabase
     .from('pantry_members')
     .insert({ pantry_id: pantry.id, user_id: user.id, role: 'owner' });
     
-  if (memberError) throw memberError;
+  if (memberError) {
+    console.error('Failed to add self as pantry member:', memberError);
+    // Clean up the orphaned pantry
+    await supabase.from('pantries').delete().eq('id', pantry.id);
+    throw memberError;
+  }
   
   return pantry;
 }
@@ -152,8 +161,8 @@ export async function getPantryItems(pantryId) {
 export async function addPantryItem(pantryId, item) {
   const payload = {
     pantry_id: pantryId,
-    area_id: item.area_id || null,
-    name: item.name,
+    area_id: item.area_id && item.area_id !== '' ? item.area_id : null,
+    name: item.name.trim(),
     category: item.category || 'other',
     quantity: item.quantity || 1,
     unit: item.unit || 'pcs',

@@ -109,10 +109,23 @@ export default function AddEditItem() {
     });
   };
 
+  const [submitting, setSubmitting] = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name.trim() || !activePantry) return;
+    if (submitting) return;
+    
+    if (!form.name.trim()) {
+      showToast('Item name is required');
+      return;
+    }
+    
+    if (!activePantry) {
+      showToast('No pantry selected. Go to Settings to create one.');
+      return;
+    }
 
+    setSubmitting(true);
     try {
       if (isEditing) {
         await updatePantryItem(id, form);
@@ -123,8 +136,10 @@ export default function AddEditItem() {
       }
       navigate('/');
     } catch (err) {
-      console.error(err);
-      showToast('Error saving item');
+      console.error('Error saving item:', err);
+      showToast(`Error: ${err.message || 'Failed to save item'}`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -252,8 +267,8 @@ export default function AddEditItem() {
           </div>
 
           <div className="form-actions">
-            <button type="submit" className="btn btn-primary btn-full btn-lg">
-              {isEditing ? 'Save Changes' : 'Add to Pantry'}
+            <button type="submit" className="btn btn-primary btn-full btn-lg" disabled={submitting}>
+              {submitting ? 'Saving...' : isEditing ? 'Save Changes' : 'Add to Pantry'}
             </button>
             <button type="button" className="btn btn-secondary btn-full" onClick={() => navigate('/')}>
               Cancel
