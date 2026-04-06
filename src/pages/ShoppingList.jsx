@@ -7,7 +7,7 @@ import {
   moveCheckedToPantry,
 } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
-import { UNITS } from '../lib/helpers';
+import { UNITS, CATEGORIES, getCategoryInfo } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import './ShoppingList.css';
@@ -19,6 +19,7 @@ export default function ShoppingList() {
   const [name, setName] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [unit, setUnit] = useState('pcs');
+  const [category, setCategory] = useState('other');
   const { showToast } = useToast();
 
   const refresh = useCallback(async () => {
@@ -40,10 +41,11 @@ export default function ShoppingList() {
   const handleAdd = async (e) => {
     e.preventDefault();
     if (!name.trim() || !activePantry) return;
-    await addShoppingItem(activePantry.id, { name: name.trim(), quantity, unit });
+    await addShoppingItem(activePantry.id, { name: name.trim(), quantity, unit, category });
     showToast(`"${name.trim()}" added to list`);
     setName('');
     setQuantity(1);
+    setCategory('other');
     refresh();
   };
 
@@ -103,6 +105,16 @@ export default function ShoppingList() {
               <option key={u} value={u}>{u}</option>
             ))}
           </select>
+          <select
+            className="shopping-cat-select"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            style={{ flex: 1, minWidth: 0 }}
+          >
+            {CATEGORIES.map((c) => (
+              <option key={c.id} value={c.id}>{c.label}</option>
+            ))}
+          </select>
           <button type="submit" className="btn btn-primary shopping-add-btn">
             Add
           </button>
@@ -126,6 +138,9 @@ export default function ShoppingList() {
                   <span className="shopping-item-name">{item.name}</span>
                   <span className="shopping-item-qty">
                     {item.quantity} {item.unit}
+                    <span className="shopping-item-cat" style={{ color: getCategoryInfo(item.category).color, marginLeft: '6px', fontSize: '0.7rem', textTransform: 'uppercase', fontWeight: 600, opacity: 0.8 }}>
+                      {getCategoryInfo(item.category).label}
+                    </span>
                   </span>
                 </div>
                 <button

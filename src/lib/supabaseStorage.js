@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getDefaultExpirationDate } from './helpers';
 
 // --- Profiles ---
 
@@ -230,7 +231,8 @@ export async function getShoppingList(pantryId) {
   
   return data.map(item => ({
     ...item,
-    isChecked: item.is_checked
+    isChecked: item.is_checked,
+    category: item.category || 'other'
   }));
 }
 
@@ -239,7 +241,8 @@ export async function addShoppingItem(pantryId, item) {
     pantry_id: pantryId,
     name: item.name,
     quantity: item.quantity || 1,
-    unit: item.unit || '',
+    unit: item.unit || 'pcs',
+    category: item.category || 'other',
     is_checked: false
   };
   const { data, error } = await supabase
@@ -283,11 +286,13 @@ export async function moveCheckedToPantry(pantryId) {
   if (checked.length === 0) return 0;
   
   for (const item of checked) {
+    const category = item.category || 'other';
     await addPantryItem(pantryId, {
       name: item.name,
       quantity: item.quantity,
       unit: item.unit,
-      category: 'other'
+      category,
+      expirationDate: getDefaultExpirationDate(category)
     });
     await deleteShoppingItem(item.id);
   }
