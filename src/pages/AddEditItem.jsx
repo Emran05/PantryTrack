@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getPantryItems, addPantryItem, updatePantryItem, getAreas } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
-import { CATEGORIES, UNITS } from '../lib/helpers';
+import { CATEGORIES, UNITS, getDefaultExpirationDate } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
 import './AddEditItem.css';
 
@@ -99,7 +99,14 @@ export default function AddEditItem() {
   }, [scanning, showToast]);
 
   const handleChange = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value === 'null' ? null : value }));
+    setForm((prev) => {
+      const updated = { ...prev, [field]: value === 'null' ? null : value };
+      // Auto-suggest expiration date when category changes and no date is set yet
+      if (field === 'category' && !prev.expirationDate && !isEditing) {
+        updated.expirationDate = getDefaultExpirationDate(value);
+      }
+      return updated;
+    });
   };
 
   const handleSubmit = async (e) => {

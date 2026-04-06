@@ -13,6 +13,30 @@ export const CATEGORIES = [
 
 export const UNITS = ['pcs', 'lbs', 'oz', 'kg', 'g', 'L', 'mL', 'cups', 'bags', 'boxes', 'cans', 'bottles'];
 
+// Default shelf life in days by category (conservative/safe-side estimates)
+export const DEFAULT_SHELF_LIFE = {
+  produce: 7,       // 1 week for fresh fruits/veggies
+  dairy: 21,         // 3 weeks for milk, cheese, yogurt
+  meat: 5,           // 5 days for fresh meat
+  grains: 14,        // 2 weeks for bread, cereal, pasta
+  frozen: 180,       // 6 months for frozen items
+  beverages: 60,     // 2 months for drinks
+  snacks: 60,        // 2 months for snacks
+  condiments: 90,    // 3 months for sauces, dressings
+  other: 14,         // 2 weeks default
+};
+
+/**
+ * Returns a default expiration date string (YYYY-MM-DD) based on category.
+ * Optionally accepts shelfLifeDays to override the category default.
+ */
+export function getDefaultExpirationDate(category, shelfLifeDays) {
+  const days = shelfLifeDays || DEFAULT_SHELF_LIFE[category] || DEFAULT_SHELF_LIFE.other;
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split('T')[0];
+}
+
 export function getCategoryInfo(categoryId) {
   return CATEGORIES.find((c) => c.id === categoryId) || CATEGORIES[CATEGORIES.length - 1];
 }

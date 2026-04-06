@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { addPantryItem, processReceiptImage } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
-import { CATEGORIES, UNITS } from '../lib/helpers';
+import { CATEGORIES, UNITS, getDefaultExpirationDate } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
 import './ScanReceipt.css';
 
@@ -32,13 +32,17 @@ export default function ScanReceipt() {
       try {
         const items = await processReceiptImage(imageBase64, mimeType);
         
-        setParsedItems(items.map((item, i) => ({ 
-          ...item, 
-          _key: i, 
-          _selected: true,
-          category: CATEGORIES.find(c => c.id === item.category) ? item.category : 'other',
-          unit: UNITS.includes(item.unit) ? item.unit : 'pcs'
-        })));
+        setParsedItems(items.map((item, i) => {
+          const category = CATEGORIES.find(c => c.id === item.category) ? item.category : 'other';
+          return { 
+            ...item, 
+            _key: i, 
+            _selected: true,
+            category,
+            unit: UNITS.includes(item.unit) ? item.unit : 'pcs',
+            expirationDate: item.expiration_date || getDefaultExpirationDate(category, item.shelfLifeDays)
+          };
+        }));
       } catch (err) {
         console.error(err);
         showToast('Failed to parse receipt. Please try again.');
@@ -74,6 +78,7 @@ export default function ScanReceipt() {
           category: item.category,
           quantity: item.quantity,
           unit: item.unit,
+          expirationDate: item.expirationDate || null,
         });
       }
       setIsDone(true);
@@ -193,6 +198,16 @@ export default function ScanReceipt() {
                           <option key={c.id} value={c.id}>{c.label}</option>
                         ))}
                       </select>
+                    </div>
+                    <div className="scan-item-meta" style={{ marginTop: '4px' }}>
+                      <label style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginRight: '6px' }}>Exp:</label>
+                      <input
+                        type="date"
+                        className="scan-item-exp"
+                        value={item.expirationDate || ''}
+                        onChange={(e) => updateItem(item._key, 'expirationDate', e.target.value)}
+                        style={{ flex: 1, padding: '4px 6px', borderRadius: '6px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', fontSize: '0.8rem' }}
+                      />
                     </div>
                   </div>
                 </div>
