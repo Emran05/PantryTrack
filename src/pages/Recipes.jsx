@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { getPantryItems, addShoppingItem } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
-import { getRecipeSuggestions } from '../lib/recipes';
+import { getRecipeSuggestions, getAIRecipeSuggestions } from '../lib/recipes';
 import { getExpirationStatus, getDaysUntilExpiration } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
 import './Recipes.css';
@@ -11,6 +11,9 @@ export default function Recipes() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
+  const [aiRecipes, setAiRecipes] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(false);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -28,7 +31,38 @@ export default function Recipes() {
     load();
   }, [activePantry]);
 
-  const suggestions = useMemo(() => getRecipeSuggestions(items), [items]);
+  // Local recipe suggestions (instant)
+  const localSuggestions = useMemo(() => getRecipeSuggestions(items), [items]);
+
+  // Fetch AI recipes when items change
+  const fetchAI = useCallback(async () => {
+    if (items.length === 0) {
+      setAiRecipes(null);
+      return;
+    }
+    setAiLoading(true);
+    setAiError(false);
+    try {
+      const recipes = await getAIRecipeSuggestions(items);
+      setAiRecipes(recipes);
+    } catch (err) {
+      console.error('AI recipe error:', err);
+      setAiError(true);
+      // Fall back silently to local
+    } finally {
+      setAiLoading(false);
+    }
+  }, [items]);
+
+  useEffect(() => {
+    if (items.length > 0) {
+      fetchAI();
+    }
+  }, [items, fetchAI]);
+
+  // Use AI recipes if available, otherwise local
+  const suggestions = aiRecipes && aiRecipes.length > 0 ? aiRecipes : localSuggestions;
+  const isUsingAI = aiRecipes && aiRecipes.length > 0;
 
   // Items expiring soonest
   const expiringItems = useMemo(() => {
@@ -60,8 +94,25 @@ export default function Recipes() {
     <div className="page-content app-container">
       <div className="recipes-header animate-fade-in">
         <h2 className="page-title">Recipes</h2>
-        <p className="page-subtitle">Dishes you can make with what you have</p>
+        <p className="page-subtitle">
+          {isUsingAI ? '✨ AI-powered suggestions based on your pantry' : 'Dishes you can make with what you have'}
+        </p>
       </div>
+
+      {/* AI Loading Indicator */}
+      {aiLoading && !isUsingAI && (
+        <div className="ai-loading-banner animate-fade-in">
+          <div className="ai-loading-pulse" />
+          <span>Generating personalized recipes with AI...</span>
+        </div>
+      )}
+
+      {/* AI Error — clickable retry */}
+      {aiError && !isUsingAI && (
+        <button className="ai-retry-banner animate-fade-in" onClick={fetchAI}>
+          <span>AI suggestions unavailable — showing local recipes. Tap to retry.</span>
+        </button>
+      )}
 
       {/* Expiring Soon Banner */}
       {expiringItems.length > 0 && (
@@ -91,7 +142,7 @@ export default function Recipes() {
         {suggestions.length > 0 ? (
           suggestions.map((recipe) => {
             const isExpanded = expandedId === recipe.id;
-            const matchPct = Math.round(recipe.matchRatio * 100);
+            const matchPct = Math.round((recipe.matchRatio || 0) * 100);
             return (
               <div
                 key={recipe.id}
@@ -100,7 +151,10 @@ export default function Recipes() {
               >
                 <div className="recipe-card-top">
                   <div className="recipe-card-info">
-                    <h3 className="recipe-card-title">{recipe.title}</h3>
+                    <h3 className="recipe-card-title">
+                      {recipe.isAI && <span style={{ marginRight: '6px', fontSize: '0.9em' }}>✨</span>}
+                      {recipe.title}
+                    </h3>
                     <div className="recipe-card-meta">
                       <span className="recipe-meta-item">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -141,16 +195,16 @@ export default function Recipes() {
 
                 {/* Ingredient Tags */}
                 <div className="recipe-ingredients">
-                  {recipe.matched.map((ing) => (
+                  {(recipe.matched || []).map((ing) => (
                     <span key={ing} className="recipe-ing-tag have">{ing}</span>
                   ))}
-                  {recipe.missing.map((ing) => (
+                  {(recipe.missing || []).map((ing) => (
                     <span key={ing} className="recipe-ing-tag missing">{ing}</span>
                   ))}
                 </div>
 
                 {/* Add Missing to Shopping List */}
-                {recipe.missing.length > 0 && (
+                {recipe.missing && recipe.missing.length > 0 && (
                   <button
                     className="btn btn-secondary recipe-add-missing"
                     onClick={(e) => handleAddMissing(e, recipe)}
@@ -169,7 +223,7 @@ export default function Recipes() {
                   <div className="recipe-instructions animate-fade-in">
                     <h4>Instructions</h4>
                     <ol>
-                      {recipe.instructions.map((step, i) => (
+                      {(recipe.instructions || []).map((step, i) => (
                         <li key={i}>{step}</li>
                       ))}
                     </ol>

@@ -1,7 +1,10 @@
-// Local recipe database for the prototype.
-// In production, replace with an API (e.g., Spoonacular, Edamam, or OpenAI).
+// Recipe engine — AI-powered via Gemini with local fallback.
 
-const RECIPES = [
+import { supabase } from './supabase';
+import { getDaysUntilExpiration } from './helpers';
+
+// Local recipe database for instant fallback while AI loads
+const LOCAL_RECIPES = [
   {
     id: 'pasta-bolognese',
     title: 'Pasta Bolognese',
@@ -150,16 +153,18 @@ function normalize(str) {
 function nameMatchesIngredient(itemName, ingredient) {
   const normalizedItem = normalize(itemName);
   const normalizedIngredient = normalize(ingredient);
-  // Check if either contains the other
   return normalizedItem.includes(normalizedIngredient) || normalizedIngredient.includes(normalizedItem);
 }
 
+/**
+ * Local-only recipe matching (instant, used as fallback)
+ */
 export function getRecipeSuggestions(pantryItems) {
   if (!pantryItems || pantryItems.length === 0) return [];
 
   const pantryNames = pantryItems.map((item) => item.name);
 
-  const scored = RECIPES.map((recipe) => {
+  const scored = LOCAL_RECIPES.map((recipe) => {
     const matched = [];
     const missing = [];
 
@@ -183,8 +188,34 @@ export function getRecipeSuggestions(pantryItems) {
     };
   });
 
-  // Only show recipes with at least 1 matching ingredient, sorted by match ratio
   return scored
     .filter((r) => r.matchCount >= 1)
     .sort((a, b) => b.matchRatio - a.matchRatio || a.missing.length - b.missing.length);
+}
+
+/**
+ * AI-powered recipe suggestions via Gemini edge function.
+ * Returns personalized recipes based on actual pantry contents.
+ * Prioritizes expiring items to reduce food waste.
+ */
+export async function getAIRecipeSuggestions(pantryItems) {
+  if (!pantryItems || pantryItems.length === 0) return [];
+
+  const hasExpiring = pantryItems.some(
+    (i) => i.expirationDate && getDaysUntilExpiration(i.expirationDate) <= 3
+  );
+
+  const items = pantryItems.map((item) => ({
+    name: item.name,
+    quantity: item.quantity,
+    unit: item.unit,
+    daysLeft: item.expirationDate ? getDaysUntilExpiration(item.expirationDate) : undefined,
+  }));
+
+  const { data, error } = await supabase.functions.invoke('suggest-recipes', {
+    body: { items, prioritizeExpiring: hasExpiring },
+  });
+
+  if (error) throw error;
+  return data.recipes || [];
 }

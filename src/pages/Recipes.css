@@ -215,3 +215,54 @@
 .recipe-add-missing:active {
   transform: scale(0.97);
 }
+
+/* ---- AI Loading / Retry Banners ---- */
+.ai-loading-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  margin-bottom: var(--space-lg);
+  font-size: var(--font-size-sm);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.ai-loading-pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  animation: aiPulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes aiPulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.ai-retry-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  background: color-mix(in srgb, var(--color-warning) 8%, var(--color-bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--color-warning) 20%, transparent);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  margin-bottom: var(--space-lg);
+  font-size: var(--font-size-sm);
+  color: var(--color-warning);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.ai-retry-banner:hover {
+  background: color-mix(in srgb, var(--color-warning) 14%, var(--color-bg-secondary));
+}
+
