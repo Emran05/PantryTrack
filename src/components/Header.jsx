@@ -28,8 +28,11 @@ export default function Header() {
                 className="pantry-select" 
                 value={activePantry?.id || ''} 
                 onChange={(e) => switchPantry(e.target.value)}
+                disabled={pantries.length === 0}
               >
-                {pantries.map(p => (
+                {pantries.length === 0 ? (
+                  <option value="" disabled>Loading...</option>
+                ) : pantries.map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>

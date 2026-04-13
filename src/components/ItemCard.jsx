@@ -86,16 +86,14 @@ export default function ItemCard({ item, onDelete, onRefresh }) {
 
   const handleQtyChange = async (e, delta) => {
     e.stopPropagation();
-    const newQty = Math.max(0, item.quantity + delta);
-    if (newQty === 0) {
-      onDelete(item.id);
-      return;
-    }
+    const newQty = Math.max(1, item.quantity + delta);
+    if (newQty === item.quantity) return; // Already at minimum
     try {
       await updatePantryItem(item.id, { quantity: newQty });
       if (onRefresh) onRefresh();
     } catch (err) {
       console.error(err);
+      showToast('Failed to update quantity');
     }
   };
 

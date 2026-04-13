@@ -1,16 +1,14 @@
+import { useState } from 'react';
 import { getThemeList, getSavedTheme, applyTheme } from '../lib/themes';
 import './ThemePicker.css';
 
 export default function ThemePicker() {
   const themes = getThemeList();
-  const current = getSavedTheme();
+  const [current, setCurrent] = useState(getSavedTheme);
 
   const handleSelect = (themeId) => {
     applyTheme(themeId);
-    // Force re-render by updating the DOM attribute for active state
-    document.querySelectorAll('.theme-swatch').forEach((el) => {
-      el.classList.toggle('active', el.dataset.theme === themeId);
-    });
+    setCurrent(themeId);
   };
 
   return (
@@ -18,7 +16,6 @@ export default function ThemePicker() {
       {themes.map((theme) => (
         <button
           key={theme.id}
-          data-theme={theme.id}
           className={`theme-swatch ${current === theme.id ? 'active' : ''}`}
           onClick={() => handleSelect(theme.id)}
           aria-label={`${theme.label} theme`}
@@ -34,3 +31,4 @@ export default function ThemePicker() {
     </div>
   );
 }
+
