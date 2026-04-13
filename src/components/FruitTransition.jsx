@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import './FruitTransition.css';
 
 const FRUITS = [
@@ -7,6 +7,12 @@ const FRUITS = [
 
 export default function FruitTransition({ isVisible, onTransitionCovered }) {
   const [items, setItems] = useState([]);
+  const callbackRef = useRef(onTransitionCovered);
+
+  // Keep ref up-to-date
+  useEffect(() => {
+    callbackRef.current = onTransitionCovered;
+  }, [onTransitionCovered]);
 
   useEffect(() => {
     if (isVisible) {
@@ -22,9 +28,8 @@ export default function FruitTransition({ isVisible, onTransitionCovered }) {
       }));
       setItems(newItems);
 
-      // Callback when fruits are likely covering the center (mid-animation)
       const timer = setTimeout(() => {
-        if (onTransitionCovered) onTransitionCovered();
+        if (callbackRef.current) callbackRef.current();
       }, 700);
 
       return () => clearTimeout(timer);
@@ -57,3 +62,4 @@ export default function FruitTransition({ isVisible, onTransitionCovered }) {
     </div>
   );
 }
+

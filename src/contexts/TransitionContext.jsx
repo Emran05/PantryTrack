@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FruitTransition from '../components/FruitTransition';
 
@@ -8,22 +8,20 @@ export const useTransition = () => useContext(TransitionContext);
 
 export function TransitionProvider({ children }) {
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [targetPath, setTargetPath] = useState('');
+  const targetPathRef = useRef('');
   const navigate = useNavigate();
 
   const startTransition = useCallback((path) => {
-    setTargetPath(path);
+    targetPathRef.current = path;
     setIsTransitioning(true);
   }, []);
 
   const handleTransitionCovered = useCallback(() => {
-    navigate(targetPath);
-    // After navigation, the transition continue to fly off
-    // We'll reset the transitioning state after the animation is presumably done
+    navigate(targetPathRef.current);
     setTimeout(() => {
       setIsTransitioning(false);
-    }, 2000); // Wait for the rest of flyAcross animation
-  }, [navigate, targetPath]);
+    }, 2000);
+  }, [navigate]);
 
   return (
     <TransitionContext.Provider value={startTransition}>
@@ -35,3 +33,4 @@ export function TransitionProvider({ children }) {
     </TransitionContext.Provider>
   );
 }
+
