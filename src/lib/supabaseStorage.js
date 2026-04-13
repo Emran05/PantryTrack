@@ -289,17 +289,20 @@ export async function moveCheckedToPantry(pantryId) {
   
   if (checked.length === 0) return 0;
   
-  for (const item of checked) {
+  // Add all checked items to pantry in parallel
+  await Promise.all(checked.map(item => {
     const category = item.category || 'other';
-    await addPantryItem(pantryId, {
+    return addPantryItem(pantryId, {
       name: item.name,
       quantity: item.quantity,
       unit: item.unit,
       category,
       expirationDate: getDefaultExpirationDate(category)
     });
-    await deleteShoppingItem(item.id);
-  }
+  }));
+
+  // Delete all checked shopping items in parallel
+  await Promise.all(checked.map(item => deleteShoppingItem(item.id)));
   
   return checked.length;
 }
