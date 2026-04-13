@@ -11,7 +11,7 @@ export default function Settings() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { user, signOut } = useAuth();
-  const { pantries, activePantry, refreshPantries, switchPantry } = usePantry();
+  const { pantries, activePantry, refreshPantries, switchPantry, setActivePantryDirect } = usePantry();
   
   const [profile, setProfile] = useState({ first_name: '', last_name: '', venmo_handle: '' });
   const [newHomeName, setNewHomeName] = useState('');
@@ -77,8 +77,10 @@ export default function Settings() {
     setLoading(true);
     try {
       const pantry = await createPantry(newHomeName.trim());
-      await refreshPantries();
-      switchPantry(pantry.id); // switch immediately to the new home
+      const freshList = await refreshPantries();
+      // Use the fresh list to find the pantry, avoiding stale-state race
+      const found = freshList.find(p => p.id === pantry.id);
+      setActivePantryDirect(found || pantry);
       setNewHomeName('');
       showToast('New home created!');
     } catch (err) {

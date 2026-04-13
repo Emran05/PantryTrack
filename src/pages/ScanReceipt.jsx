@@ -70,7 +70,12 @@ export default function ScanReceipt() {
     if (!activePantry) return;
     
     setIsProcessing(true);
-    const selected = parsedItems.filter((item) => item._selected);
+    const selected = parsedItems.filter((item) => item._selected && item.name.trim());
+    if (selected.length === 0) {
+      showToast('No valid items selected');
+      setIsProcessing(false);
+      return;
+    }
     try {
       for (const item of selected) {
         await addPantryItem(activePantry.id, {
@@ -92,7 +97,7 @@ export default function ScanReceipt() {
     }
   };
 
-  const selectedCount = parsedItems.filter((i) => i._selected).length;
+  const selectedCount = parsedItems.filter((i) => i._selected && i.name.trim()).length;
 
   return (
     <div className="page-content app-container">

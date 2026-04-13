@@ -1,5 +1,8 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { addShoppingItem, updatePantryItem } from '../lib/supabaseStorage';
+import { usePantry } from '../contexts/PantryContext';
+import { useToast } from '../components/ToastContext';
 import CategoryBadge from './CategoryBadge';
 import ExpirationBadge from './ExpirationBadge';
 import './ItemCard.css';
@@ -8,8 +11,10 @@ function haptic(ms = 10) {
   if (navigator.vibrate) navigator.vibrate(ms);
 }
 
-export default function ItemCard({ item, onDelete }) {
+export default function ItemCard({ item, onDelete, onRefresh }) {
   const navigate = useNavigate();
+  const { activePantry } = usePantry();
+  const { showToast } = useToast();
   const cardRef = useRef(null);
   const startX = useRef(0);
   const currentX = useRef(0);
@@ -62,10 +67,50 @@ export default function ItemCard({ item, onDelete }) {
     navigate(`/item/${item.id}`);
   };
 
+  const handleAddToList = async (e) => {
+    e.stopPropagation();
+    if (!activePantry) return;
+    try {
+      await addShoppingItem(activePantry.id, {
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        category: item.category || 'other',
+      });
+      showToast(`"${item.name}" added to shopping list`);
+    } catch (err) {
+      console.error(err);
+      showToast('Error adding to list');
+    }
+  };
+
+  const handleQtyChange = async (e, delta) => {
+    e.stopPropagation();
+    const newQty = Math.max(0, item.quantity + delta);
+    if (newQty === 0) {
+      onDelete(item.id);
+      return;
+    }
+    try {
+      await updatePantryItem(item.id, { quantity: newQty });
+      if (onRefresh) onRefresh();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
     <div className="item-card-wrapper">
       {/* Delete action behind the card */}
       <div className={`item-card-swipe-action ${swiped ? 'revealed' : ''}`}>
+        <button className="item-card-swipe-list" onClick={handleAddToList} aria-label="Add to shopping list">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="9" cy="21" r="1" />
+            <circle cx="20" cy="21" r="1" />
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+          </svg>
+          List
+        </button>
         <button className="item-card-swipe-delete" onClick={handleDelete} aria-label="Delete">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="3 6 5 6 21 6" />
@@ -94,7 +139,9 @@ export default function ItemCard({ item, onDelete }) {
             </div>
           </div>
           <div className="item-card-qty">
+            <button className="item-qty-btn" onClick={(e) => handleQtyChange(e, -1)} aria-label="Decrease">−</button>
             <span className="item-card-qty-value">{item.quantity}</span>
+            <button className="item-qty-btn" onClick={(e) => handleQtyChange(e, 1)} aria-label="Increase">+</button>
             <span className="item-card-qty-unit">{item.unit}</span>
           </div>
         </div>

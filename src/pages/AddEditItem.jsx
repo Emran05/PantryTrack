@@ -61,18 +61,26 @@ export default function AddEditItem() {
   useEffect(() => {
     if (!scanning) return;
 
+    let scannerInstance = null;
+    let aborted = false;
+
     import('html5-qrcode').then(({ Html5QrcodeScanner }) => {
-      const scanner = new Html5QrcodeScanner('reader', {
+      if (aborted) return; // Component unmounted or scanning toggled off
+
+      scannerInstance = new Html5QrcodeScanner('reader', {
         qrbox: { width: 250, height: 250 },
         fps: 5,
       }, false);
 
-      scanner.render(
+      scannerInstance.render(
         async (decodedText) => {
-          scanner.clear();
+          try { await scannerInstance.clear(); } catch (_) {}
+          scannerInstance = null;
           setScanning(false);
+          if (aborted) return;
           try {
             const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${decodedText}`);
+            if (aborted) return;
             const data = await res.json();
             if (data.status === 1 && data.product) {
               setForm(prev => ({ ...prev, name: data.product.product_name || prev.name }));
@@ -82,20 +90,27 @@ export default function AddEditItem() {
             }
           } catch (e) {
             console.error(e);
-            showToast('Error looking up product');
+            if (!aborted) showToast('Error looking up product');
           }
         },
         () => {} // Ignore scan errors per frame
       );
-
-      return () => {
-        scanner.clear().catch(console.error);
-      };
     }).catch(err => {
       console.error('Failed to load html5-qrcode', err);
-      showToast('Scanner failed to load');
-      setScanning(false);
+      if (!aborted) {
+        showToast('Scanner failed to load');
+        setScanning(false);
+      }
     });
+
+    // Synchronous cleanup React can actually call
+    return () => {
+      aborted = true;
+      if (scannerInstance) {
+        scannerInstance.clear().catch(console.error);
+        scannerInstance = null;
+      }
+    };
   }, [scanning, showToast]);
 
   const handleChange = (field, value) => {

@@ -4,6 +4,7 @@ import { getPantryItems } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
 import { CATEGORIES, getExpirationStatus, getDaysUntilExpiration, getCategoryInfo } from '../lib/helpers';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { useToast } from '../components/ToastContext';
 import './Dashboard.css';
 
 // --- Animated SVG Icons ---
@@ -105,11 +106,16 @@ export default function Dashboard() {
   const [activePopup, setActivePopup] = useState(null);
   const [animatedCard, setAnimatedCard] = useState(null);
   const navigate = useNavigate();
+  const { showToast } = useToast();
 
   const fetchItems = () => {
     if (activePantry) {
       getPantryItems(activePantry.id).then(data => {
         setItems(data);
+        setLoading(false);
+      }).catch(err => {
+        console.error('Failed to load dashboard items:', err);
+        showToast('Failed to load dashboard data');
         setLoading(false);
       });
     }
@@ -149,7 +155,7 @@ export default function Dashboard() {
       .sort((a, b) => new Date(a.expirationDate) - new Date(b.expirationDate))
       .slice(0, 5);
 
-    // Streak: days since last expired item
+    // Streak: days since last expired item (honest — 0 when no data)
     const lastExpired = items
       .filter((i) => getExpirationStatus(i.expirationDate) === 'expired')
       .sort((a, b) => new Date(b.expirationDate) - new Date(a.expirationDate))[0];
@@ -159,11 +165,10 @@ export default function Dashboard() {
       const expDate = new Date(lastExpired.expirationDate);
       const now = new Date();
       streakDays = Math.max(0, Math.floor((now - expDate) / (1000 * 60 * 60 * 24)));
-    } else if (total > 0) {
-      streakDays = 7; // If nothing expired, assume a week streak
     }
+    // When nothing is expired, streak is unknown — show 0 instead of fabricating 7
 
-    // "Waste saved" — rough estimate: items used before expiry × $3 avg
+    // "Waste saved" — rough estimate: non-expired items × $3 avg (labeled as estimate)
     const usedBeforeExpiry = fresh + expiringSoon;
     const savedEstimate = usedBeforeExpiry * 3;
 
@@ -371,7 +376,9 @@ export default function Dashboard() {
         </div>
       )}
 
-      {items.length === 0 && (
+      {loading ? (
+        <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>Loading dashboard...</div>
+      ) : items.length === 0 && (
         <div className="empty-state animate-fade-in">
           <div className="empty-state-icon">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

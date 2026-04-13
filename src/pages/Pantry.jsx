@@ -18,10 +18,15 @@ export default function Pantry() {
 
   const refresh = useCallback(async () => {
     if (activePantry) {
-      const data = await getPantryItems(activePantry.id);
-      setItems(data);
+      try {
+        const data = await getPantryItems(activePantry.id);
+        setItems(data);
+      } catch (err) {
+        console.error('Failed to load pantry items:', err);
+        showToast('Failed to load pantry items');
+      }
     }
-  }, [activePantry]);
+  }, [activePantry, showToast]);
 
   useEffect(() => {
     if (activePantry) {
@@ -34,9 +39,14 @@ export default function Pantry() {
 
   const handleDelete = useCallback(async (id) => {
     const item = items.find((i) => i.id === id);
-    await deletePantryItem(id);
-    refresh();
-    showToast(`"${item?.name || 'Item'}" removed`);
+    try {
+      await deletePantryItem(id);
+      refresh();
+      showToast(`"${item?.name || 'Item'}" removed`);
+    } catch (err) {
+      console.error('Failed to delete item:', err);
+      showToast('Failed to delete item');
+    }
   }, [items, refresh, showToast]);
 
   const filtered = items.filter((item) => {
@@ -89,7 +99,9 @@ export default function Pantry() {
       </div>
 
       <div className="pantry-list">
-        {filtered.length > 0 ? (
+        {loading ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>Loading pantry items...</div>
+        ) : filtered.length > 0 ? (
           Object.entries(groupedItems)
             .sort(([a], [b]) => (a === 'Unassigned' ? 1 : b === 'Unassigned' ? -1 : a.localeCompare(b)))
             .map(([area, areaItems]) => (
@@ -98,7 +110,7 @@ export default function Pantry() {
                   {area}
                 </h3>
                 {areaItems.map((item) => (
-                  <ItemCard key={item.id} item={item} onDelete={handleDelete} />
+                  <ItemCard key={item.id} item={item} onDelete={handleDelete} onRefresh={refresh} />
                 ))}
             </div>
           ))

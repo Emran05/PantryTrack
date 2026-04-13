@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PantryProvider, usePantry } from './contexts/PantryContext';
@@ -8,15 +8,17 @@ import { TransitionProvider } from './contexts/TransitionContext';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import Landing from './pages/Landing';
-import Pantry from './pages/Pantry';
-import AddEditItem from './pages/AddEditItem';
-import ShoppingList from './pages/ShoppingList';
-import Dashboard from './pages/Dashboard';
-import ScanReceipt from './pages/ScanReceipt';
-import Recipes from './pages/Recipes';
-import Settings from './pages/Settings';
 import Auth from './pages/Auth';
 import './components/Toast.css';
+
+// Lazy-loaded pages for code splitting (authenticated routes only)
+const Pantry = lazy(() => import('./pages/Pantry'));
+const AddEditItem = lazy(() => import('./pages/AddEditItem'));
+const ShoppingList = lazy(() => import('./pages/ShoppingList'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const ScanReceipt = lazy(() => import('./pages/ScanReceipt'));
+const Recipes = lazy(() => import('./pages/Recipes'));
+const Settings = lazy(() => import('./pages/Settings'));
 
 function PageTransitionWrapper({ children }) {
   const location = useLocation();
@@ -58,18 +60,20 @@ function AppContent() {
   return (
     <>
       <Header />
-      <PageTransitionWrapper>
-        <Routes>
-          <Route path="/" element={<Pantry />} />
-          <Route path="/item/:id" element={<AddEditItem />} />
-          <Route path="/shopping" element={<ShoppingList />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/scan" element={<ScanReceipt />} />
-          <Route path="/recipes" element={<Recipes />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </PageTransitionWrapper>
+      <Suspense fallback={<div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)' }}>Loading...</div>}>
+        <PageTransitionWrapper>
+          <Routes>
+            <Route path="/" element={<Pantry />} />
+            <Route path="/item/:id" element={<AddEditItem />} />
+            <Route path="/shopping" element={<ShoppingList />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/scan" element={<ScanReceipt />} />
+            <Route path="/recipes" element={<Recipes />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </PageTransitionWrapper>
+      </Suspense>
       <BottomNav />
     </>
   );

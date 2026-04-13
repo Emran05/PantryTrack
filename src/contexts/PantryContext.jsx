@@ -56,16 +56,25 @@ export function PantryProvider({ children }) {
     }
   };
 
+  // Set active pantry directly from a pantry object (bypasses stale state)
+  const setActivePantryDirect = (pantry) => {
+    if (pantry) {
+      setActivePantry(pantry);
+      localStorage.setItem('pantry_active_id', pantry.id);
+    }
+  };
+
   const refreshPantries = async () => {
     const data = await getUserPantries();
     setPantries(data);
     if (activePantry && !data.find(p => p.id === activePantry.id)) {
       setActivePantry(data[0] || null);
     }
+    return data; // Return fresh list so callers can use it
   };
 
   return (
-    <PantryContext.Provider value={{ pantries, activePantry, switchPantry, refreshPantries, loading }}>
+    <PantryContext.Provider value={{ pantries, activePantry, switchPantry, setActivePantryDirect, refreshPantries, loading }}>
       {children}
     </PantryContext.Provider>
   );

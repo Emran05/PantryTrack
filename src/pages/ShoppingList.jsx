@@ -24,10 +24,15 @@ export default function ShoppingList() {
 
   const refresh = useCallback(async () => {
     if (activePantry) {
-      const data = await getShoppingList(activePantry.id);
-      setItems(data);
+      try {
+        const data = await getShoppingList(activePantry.id);
+        setItems(data);
+      } catch (err) {
+        console.error('Failed to load shopping list:', err);
+        showToast('Failed to load shopping list');
+      }
     }
-  }, [activePantry]);
+  }, [activePantry, showToast]);
 
   useEffect(() => {
     if (activePantry) {
@@ -41,32 +46,52 @@ export default function ShoppingList() {
   const handleAdd = async (e) => {
     e.preventDefault();
     if (!name.trim() || !activePantry) return;
-    await addShoppingItem(activePantry.id, { name: name.trim(), quantity, unit, category });
-    showToast(`"${name.trim()}" added to list`);
-    setName('');
-    setQuantity(1);
-    setCategory('other');
-    refresh();
+    try {
+      await addShoppingItem(activePantry.id, { name: name.trim(), quantity, unit, category });
+      showToast(`"${name.trim()}" added to list`);
+      setName('');
+      setQuantity(1);
+      setCategory('other');
+      refresh();
+    } catch (err) {
+      console.error('Failed to add item:', err);
+      showToast('Failed to add item');
+    }
   };
 
   const handleToggle = async (id, currentChecked) => {
-    await updateShoppingItem(id, { isChecked: !currentChecked });
-    refresh();
+    try {
+      await updateShoppingItem(id, { isChecked: !currentChecked });
+      refresh();
+    } catch (err) {
+      console.error('Failed to update item:', err);
+      showToast('Failed to update item');
+    }
   };
 
   const handleDelete = async (id) => {
     const item = items.find((i) => i.id === id);
-    await deleteShoppingItem(id);
-    refresh();
-    showToast(`"${item?.name || 'Item'}" removed`);
+    try {
+      await deleteShoppingItem(id);
+      refresh();
+      showToast(`"${item?.name || 'Item'}" removed`);
+    } catch (err) {
+      console.error('Failed to delete item:', err);
+      showToast('Failed to delete item');
+    }
   };
 
   const handleMoveToPantry = async () => {
     if (!activePantry) return;
-    const count = await moveCheckedToPantry(activePantry.id);
-    if (count > 0) {
-      refresh();
-      showToast(`${count} item${count !== 1 ? 's' : ''} moved to pantry`);
+    try {
+      const count = await moveCheckedToPantry(activePantry.id);
+      if (count > 0) {
+        refresh();
+        showToast(`${count} item${count !== 1 ? 's' : ''} moved to pantry`);
+      }
+    } catch (err) {
+      console.error('Failed to move items:', err);
+      showToast('Failed to move items to pantry');
     }
   };
 
@@ -190,7 +215,9 @@ export default function ShoppingList() {
           </div>
         )}
 
-        {items.length === 0 && (
+        {loading ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>Loading shopping list...</div>
+        ) : items.length === 0 && (
           <div className="empty-state animate-fade-in">
             <div className="empty-state-icon">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

@@ -19,8 +19,7 @@ export async function getProfile(userId) {
 export async function updateProfile(userId, updates) {
   const { data, error } = await supabase
     .from('profiles')
-    .update(updates)
-    .eq('id', userId)
+    .upsert({ id: userId, ...updates })
     .select()
     .single();
     
@@ -143,6 +142,7 @@ export async function getPantryItems(pantryId) {
       quantity,
       unit,
       expiration_date,
+      created_at,
       notes,
       areas ( name )
     `)
@@ -160,10 +160,14 @@ export async function getPantryItems(pantryId) {
 }
 
 export async function addPantryItem(pantryId, item) {
+  const trimmedName = (item.name || '').trim();
+  if (!trimmedName) {
+    throw new Error('Item name cannot be blank');
+  }
   const payload = {
     pantry_id: pantryId,
     area_id: item.area_id && item.area_id !== '' ? item.area_id : null,
-    name: item.name.trim(),
+    name: trimmedName,
     category: item.category || 'other',
     quantity: item.quantity || 1,
     unit: item.unit || 'pcs',
