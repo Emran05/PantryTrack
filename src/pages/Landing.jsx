@@ -1,5 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
 import SyncCanvas from '../components/SyncCanvas';
 import MagicBoxDashboard from '../components/MagicBoxDashboard';
 import PixelReceipt from '../components/PixelReceipt';

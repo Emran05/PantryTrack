@@ -72,7 +72,7 @@ export default function Pantry() {
     <div className="page-content app-container">
       <div className="pantry-header animate-fade-in">
         <h2 className="page-title">My Pantry</h2>
-        <p className="page-subtitle">{items.length} item{items.length !== 1 ? 's' : ''} tracked</p>
+        {!loading && <p className="page-subtitle">{items.length} item{items.length !== 1 ? 's' : ''} tracked</p>}
       </div>
 
       <div className="pantry-search animate-fade-in">

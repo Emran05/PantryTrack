@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getPantryItems } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
@@ -108,7 +108,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
-  const fetchItems = () => {
+  const fetchItems = useCallback(() => {
     if (activePantry) {
       getPantryItems(activePantry.id).then(data => {
         setItems(data);
@@ -119,12 +119,12 @@ export default function Dashboard() {
         setLoading(false);
       });
     }
-  };
+  }, [activePantry, showToast]);
 
   useEffect(() => {
     setLoading(true);
     fetchItems();
-  }, [activePantry]);
+  }, [fetchItems]);
 
   useRealtimeSync(activePantry?.id, 'pantry_items', fetchItems);
 

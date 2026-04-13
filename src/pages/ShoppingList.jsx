@@ -102,7 +102,7 @@ export default function ShoppingList() {
     <div className="page-content app-container">
       <div className="shopping-header animate-fade-in">
         <h2 className="page-title">Shopping List</h2>
-        <p className="page-subtitle">{items.length} item{items.length !== 1 ? 's' : ''}</p>
+        {!loading && <p className="page-subtitle">{items.length} item{items.length !== 1 ? 's' : ''}</p>}
       </div>
 
       <form className="shopping-add-form animate-fade-in" onSubmit={handleAdd}>

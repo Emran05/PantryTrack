@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { getPantryItems, addShoppingItem } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
 import { getRecipeSuggestions, getAIRecipeSuggestions } from '../lib/recipes';
@@ -15,6 +15,7 @@ export default function Recipes() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(false);
   const { showToast } = useToast();
+  const aiRequestId = useRef(0);
 
   useEffect(() => {
     async function load() {
@@ -34,31 +35,33 @@ export default function Recipes() {
   // Local recipe suggestions (instant)
   const localSuggestions = useMemo(() => getRecipeSuggestions(items), [items]);
 
-  // Fetch AI recipes when items change
-  const fetchAI = useCallback(async () => {
+  // Fetch AI recipes when items change — with stale-response protection
+  useEffect(() => {
     if (items.length === 0) {
       setAiRecipes(null);
       return;
     }
+
+    const requestId = ++aiRequestId.current;
     setAiLoading(true);
     setAiError(false);
-    try {
-      const recipes = await getAIRecipeSuggestions(items);
-      setAiRecipes(recipes);
-    } catch (err) {
-      console.error('AI recipe error:', err);
-      setAiError(true);
-      // Fall back silently to local
-    } finally {
-      setAiLoading(false);
-    }
-  }, [items]);
 
-  useEffect(() => {
-    if (items.length > 0) {
-      fetchAI();
-    }
-  }, [items, fetchAI]);
+    getAIRecipeSuggestions(items)
+      .then(recipes => {
+        if (aiRequestId.current !== requestId) return; // Stale — ignore
+        setAiRecipes(recipes);
+      })
+      .catch(err => {
+        if (aiRequestId.current !== requestId) return;
+        console.error('AI recipe error:', err);
+        setAiError(true);
+      })
+      .finally(() => {
+        if (aiRequestId.current === requestId) {
+          setAiLoading(false);
+        }
+      });
+  }, [items]);
 
   // Use AI recipes if available, otherwise local
   const suggestions = aiRecipes && aiRecipes.length > 0 ? aiRecipes : localSuggestions;
