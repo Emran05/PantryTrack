@@ -1,4 +1,4 @@
-import { useEffect, Suspense, lazy } from 'react';
+import { useEffect, useState, useCallback, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PantryProvider, usePantry } from './contexts/PantryContext';
@@ -7,6 +7,7 @@ import { getSavedTheme, applyTheme } from './lib/themes';
 import { TransitionProvider } from './contexts/TransitionContext';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
+import Tour, { isTourCompleted } from './components/Tour';
 import Landing from './pages/Landing';
 import Auth from './pages/Auth';
 import './components/Toast.css';
@@ -38,6 +39,25 @@ function PageTransitionWrapper({ children }) {
 function AppContent() {
   const { user } = useAuth();
   const { loading } = usePantry();
+  const [showTour, setShowTour] = useState(false);
+
+  // Check tour status when user arrives at the authenticated shell
+  useEffect(() => {
+    if (user && !loading && !isTourCompleted()) {
+      setShowTour(true);
+    }
+  }, [user, loading]);
+
+  // Listen for "restart tour" events dispatched from Settings
+  useEffect(() => {
+    const handler = () => setShowTour(true);
+    window.addEventListener('pantry-restart-tour', handler);
+    return () => window.removeEventListener('pantry-restart-tour', handler);
+  }, []);
+
+  const handleTourComplete = useCallback(() => {
+    setShowTour(false);
+  }, []);
 
   if (!user) {
     return (
@@ -75,6 +95,7 @@ function AppContent() {
         </PageTransitionWrapper>
       </Suspense>
       <BottomNav />
+      {showTour && <Tour onComplete={handleTourComplete} />}
     </>
   );
 }

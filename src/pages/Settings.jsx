@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { usePantry } from '../contexts/PantryContext';
 import { createPantry, inviteMemberByEmail, getAreas, createArea, deleteArea, getProfile, updateProfile } from '../lib/supabaseStorage';
 import { useToast } from '../components/ToastContext';
+import { resetTourFlag } from '../components/Tour';
 import ThemePicker from '../components/ThemePicker';
 import './Settings.css';
 
@@ -132,6 +133,11 @@ export default function Settings() {
       showToast('Failed to invite user. They might already be invited.');
     }
     setLoading(false);
+  };
+
+  const handleRestartTour = () => {
+    resetTourFlag();
+    window.dispatchEvent(new CustomEvent('pantry-restart-tour'));
   };
 
   return (
@@ -282,6 +288,19 @@ export default function Settings() {
           <h3 className="settings-section-title">Theme</h3>
           <div className="settings-card card">
             <ThemePicker />
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <h3 className="settings-section-title">Help</h3>
+          <div className="settings-card card">
+            <p className="settings-desc">Need a refresher? Walk through the app’s features again.</p>
+            <button className="btn btn-secondary btn-full" onClick={handleRestartTour} style={{ marginTop: '12px' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
+                <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+              </svg>
+              Retake App Tour
+            </button>
           </div>
         </div>
 
