@@ -87,17 +87,29 @@ export async function getPantryMembers(pantryId) {
   return data;
 }
 
-export async function inviteMemberByEmail(pantryId, email) {
-  // We just insert their email into pantry_members. If they don't have an auth.users record yet,
-  // user_id will be null. When they signup, we could link it, or if they exist, link their id.
-  // For simplicity, let's just insert with email.
-  const { data, error } = await supabase
+export async function joinPantryById(pantryId) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not logged in');
+
+  // Check if already a member
+  const { data: existing } = await supabase
     .from('pantry_members')
-    .insert({ pantry_id: pantryId, email, role: 'member' })
-    .select()
-    .single();
+    .select('id')
+    .eq('pantry_id', pantryId)
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (existing) {
+    const err = new Error('You are already a member of this home');
+    err.code = 'ALREADY_MEMBER';
+    throw err;
+  }
+
+  const { error } = await supabase
+    .from('pantry_members')
+    .insert({ pantry_id: pantryId, user_id: user.id, email: user.email, role: 'member' });
+
   if (error) throw error;
-  return data;
 }
 
 // --- Areas ---
@@ -159,11 +171,28 @@ export async function getPantryItems(pantryId) {
   }));
 }
 
-export async function addPantryItem(pantryId, item) {
+export async function addPantryItem(pantryId, item, { skipDuplicateCheck = false } = {}) {
   const trimmedName = (item.name || '').trim();
   if (!trimmedName) {
     throw new Error('Item name cannot be blank');
   }
+
+  if (!skipDuplicateCheck) {
+    const { data: existing } = await supabase
+      .from('pantry_items')
+      .select('id, name, quantity, unit')
+      .eq('pantry_id', pantryId)
+      .ilike('name', trimmedName)
+      .maybeSingle();
+
+    if (existing) {
+      const err = new Error(`"${trimmedName}" is already in your pantry`);
+      err.code = 'DUPLICATE_ITEM';
+      err.existing = existing;
+      throw err;
+    }
+  }
+
   const payload = {
     pantry_id: pantryId,
     area_id: item.area_id && item.area_id !== '' ? item.area_id : null,
@@ -183,7 +212,7 @@ export async function addPantryItem(pantryId, item) {
     `)
     .single();
   if (error) throw error;
-  
+
   return {
     ...data,
     expirationDate: data.expiration_date,
@@ -240,10 +269,29 @@ export async function getShoppingList(pantryId) {
   }));
 }
 
-export async function addShoppingItem(pantryId, item) {
+export async function addShoppingItem(pantryId, item, { skipDuplicateCheck = false } = {}) {
+  const trimmedName = (item.name || '').trim();
+  if (!trimmedName) throw new Error('Item name cannot be blank');
+
+  if (!skipDuplicateCheck) {
+    const { data: existing } = await supabase
+      .from('shopping_items')
+      .select('id, name, quantity, unit')
+      .eq('pantry_id', pantryId)
+      .ilike('name', trimmedName)
+      .maybeSingle();
+
+    if (existing) {
+      const err = new Error(`"${trimmedName}" is already on your list`);
+      err.code = 'DUPLICATE_ITEM';
+      err.existing = existing;
+      throw err;
+    }
+  }
+
   const payload = {
     pantry_id: pantryId,
-    name: item.name,
+    name: trimmedName,
     quantity: item.quantity || 1,
     unit: item.unit || 'pcs',
     category: item.category || 'other',
@@ -289,7 +337,9 @@ export async function moveCheckedToPantry(pantryId) {
   
   if (checked.length === 0) return 0;
   
-  // Add all checked items to pantry in parallel
+  // Add all checked items to pantry in parallel (skip per-item duplicate check — items
+  // on the shopping list are already unique; the pantry check would be a false positive
+  // since users intentionally restock items they've run out of)
   await Promise.all(checked.map(item => {
     const category = item.category || 'other';
     return addPantryItem(pantryId, {
@@ -298,7 +348,7 @@ export async function moveCheckedToPantry(pantryId) {
       unit: item.unit,
       category,
       expirationDate: getDefaultExpirationDate(category)
-    });
+    }, { skipDuplicateCheck: true });
   }));
 
   // Delete all checked shopping items in parallel

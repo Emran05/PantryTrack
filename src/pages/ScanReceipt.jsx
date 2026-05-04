@@ -68,7 +68,7 @@ export default function ScanReceipt() {
 
   const handleConfirm = async () => {
     if (!activePantry) return;
-    
+
     setIsProcessing(true);
     const selected = parsedItems.filter((item) => item._selected && item.name.trim());
     if (selected.length === 0) {
@@ -76,24 +76,34 @@ export default function ScanReceipt() {
       setIsProcessing(false);
       return;
     }
-    try {
-      for (const item of selected) {
-        await addPantryItem(activePantry.id, {
+
+    const results = await Promise.allSettled(
+      selected.map((item) =>
+        addPantryItem(activePantry.id, {
           name: item.name,
           category: item.category,
           quantity: item.quantity,
           unit: item.unit,
           expirationDate: item.expirationDate || null,
-        });
-      }
+        }, { skipDuplicateCheck: true })
+      )
+    );
+
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.length - succeeded;
+
+    setIsProcessing(false);
+
+    if (succeeded > 0) {
       setIsDone(true);
-      showToast(`${selected.length} item${selected.length !== 1 ? 's' : ''} added to pantry`);
+      if (failed > 0) {
+        showToast(`${succeeded} added, ${failed} failed — check your pantry`);
+      } else {
+        showToast(`${succeeded} item${succeeded !== 1 ? 's' : ''} added to pantry`);
+      }
       setTimeout(() => navigate('/'), 1200);
-    } catch (error) {
-      console.error(error);
-      showToast('Error importing items');
-    } finally {
-      setIsProcessing(false);
+    } else {
+      showToast('All items failed to import — please try again');
     }
   };
 

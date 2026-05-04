@@ -6,6 +6,11 @@ const PantryContext = createContext({});
 
 export const usePantry = () => useContext(PantryContext);
 
+// Module-level guard: prevents two instances (tabs) from both racing to create
+// the default "My Home" pantry. The real fix requires a server-side unique
+// constraint, but this eliminates the same-tab race.
+let defaultPantryBeingCreated = false;
+
 export function PantryProvider({ children }) {
   const { user } = useAuth();
   const [pantries, setPantries] = useState([]);
@@ -24,15 +29,18 @@ export function PantryProvider({ children }) {
       try {
         setLoading(true);
         let data = await getUserPantries();
-        
-        // If user has no pantries, create a default "My Home"
-        if (data.length === 0) {
-          const newPantry = await createPantry('My Home');
-          data = await getUserPantries(); // refetch to get the full formatted object with members
+
+        if (data.length === 0 && !defaultPantryBeingCreated) {
+          defaultPantryBeingCreated = true;
+          try {
+            await createPantry('My Home');
+            data = await getUserPantries();
+          } finally {
+            defaultPantryBeingCreated = false;
+          }
         }
-        
+
         setPantries(data);
-        // Default to the first pantry if none is selected
         if (data.length > 0) {
           const defaultActive = localStorage.getItem('pantry_active_id');
           const found = data.find(p => p.id === defaultActive);

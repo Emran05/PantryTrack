@@ -145,11 +145,27 @@ export default function AddEditItem() {
       if (isEditing) {
         await updatePantryItem(id, form);
         showToast(`"${form.name}" updated`);
+        navigate('/');
       } else {
-        await addPantryItem(activePantry.id, form);
-        showToast(`"${form.name}" added to pantry`);
+        try {
+          await addPantryItem(activePantry.id, form);
+          showToast(`"${form.name}" added to pantry`);
+          navigate('/');
+        } catch (err) {
+          if (err.code === 'DUPLICATE_ITEM') {
+            const confirmed = window.confirm(
+              `"${form.name}" is already in your pantry.\n\nAdd it anyway?`
+            );
+            if (confirmed) {
+              await addPantryItem(activePantry.id, form, { skipDuplicateCheck: true });
+              showToast(`"${form.name}" added to pantry`);
+              navigate('/');
+            }
+          } else {
+            throw err;
+          }
+        }
       }
-      navigate('/');
     } catch (err) {
       console.error('Error saving item:', err);
       showToast(`Error: ${err.message || 'Failed to save item'}`);

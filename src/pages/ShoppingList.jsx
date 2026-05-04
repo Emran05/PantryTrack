@@ -45,17 +45,22 @@ export default function ShoppingList() {
 
   const handleAdd = async (e) => {
     e.preventDefault();
-    if (!name.trim() || !activePantry) return;
+    const trimmed = name.trim();
+    if (!trimmed || !activePantry) return;
     try {
-      await addShoppingItem(activePantry.id, { name: name.trim(), quantity, unit, category });
-      showToast(`"${name.trim()}" added to list`);
+      await addShoppingItem(activePantry.id, { name: trimmed, quantity, unit, category });
+      showToast(`"${trimmed}" added to list`);
       setName('');
       setQuantity(1);
       setCategory('other');
       refresh();
     } catch (err) {
-      console.error('Failed to add item:', err);
-      showToast('Failed to add item');
+      if (err.code === 'DUPLICATE_ITEM') {
+        showToast(`"${trimmed}" is already on your list`);
+      } else {
+        console.error('Failed to add item:', err);
+        showToast('Failed to add item');
+      }
     }
   };
 

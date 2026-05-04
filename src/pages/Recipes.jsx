@@ -3,6 +3,7 @@ import { getPantryItems, addShoppingItem } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
 import { getRecipeSuggestions, getAIRecipeSuggestions } from '../lib/recipes';
 import { getExpirationStatus, getDaysUntilExpiration } from '../lib/helpers';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useToast } from '../components/ToastContext';
 import './Recipes.css';
 
@@ -17,26 +18,29 @@ export default function Recipes() {
   const { showToast } = useToast();
   const aiRequestId = useRef(0);
 
-  useEffect(() => {
-    async function load() {
-      if (!activePantry) return;
-      setLoading(true);
-      try {
-        const data = await getPantryItems(activePantry.id);
-        setItems(data);
-      } catch (err) {
-        console.error('Failed to load items for recipes', err);
-      }
-      setLoading(false);
+  const fetchItems = useCallback(async () => {
+    if (!activePantry) return;
+    setLoading(true);
+    try {
+      const data = await getPantryItems(activePantry.id);
+      setItems(data);
+    } catch (err) {
+      console.error('Failed to load items for recipes', err);
     }
-    load();
+    setLoading(false);
   }, [activePantry]);
+
+  useEffect(() => {
+    fetchItems();
+  }, [fetchItems]);
+
+  useRealtimeSync(activePantry?.id, 'pantry_items', fetchItems);
 
   // Local recipe suggestions (instant)
   const localSuggestions = useMemo(() => getRecipeSuggestions(items), [items]);
 
-  // Fetch AI recipes when items change — with stale-response protection
-  useEffect(() => {
+  // Fetch AI recipes — extracted so retry button can call it
+  const fetchAI = useCallback(() => {
     if (items.length === 0) {
       setAiRecipes(null);
       return;
@@ -48,7 +52,7 @@ export default function Recipes() {
 
     getAIRecipeSuggestions(items)
       .then(recipes => {
-        if (aiRequestId.current !== requestId) return; // Stale — ignore
+        if (aiRequestId.current !== requestId) return;
         setAiRecipes(recipes);
       })
       .catch(err => {
@@ -57,11 +61,13 @@ export default function Recipes() {
         setAiError(true);
       })
       .finally(() => {
-        if (aiRequestId.current === requestId) {
-          setAiLoading(false);
-        }
+        if (aiRequestId.current === requestId) setAiLoading(false);
       });
   }, [items]);
+
+  useEffect(() => {
+    fetchAI();
+  }, [fetchAI]);
 
   // Use AI recipes if available, otherwise local
   const suggestions = aiRecipes && aiRecipes.length > 0 ? aiRecipes : localSuggestions;
@@ -83,9 +89,11 @@ export default function Recipes() {
     e.stopPropagation();
     if (recipe.missing.length === 0 || !activePantry) return;
     try {
-      for (const ingredient of recipe.missing) {
-        await addShoppingItem(activePantry.id, { name: ingredient, quantity: 1, unit: 'pcs' });
-      }
+      await Promise.allSettled(
+        recipe.missing.map((ingredient) =>
+          addShoppingItem(activePantry.id, { name: ingredient, quantity: 1, unit: 'pcs' }, { skipDuplicateCheck: true })
+        )
+      );
       showToast(`${recipe.missing.length} item${recipe.missing.length !== 1 ? 's' : ''} added to shopping list`);
     } catch (err) {
       console.error(err);

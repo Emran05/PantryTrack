@@ -361,6 +361,10 @@ ul, ol {
   animation: scaleIn var(--transition-base) ease forwards;
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* --- Page Transitions --- */
 @keyframes pageFadeIn {
   from { opacity: 0; transform: translateY(6px); }

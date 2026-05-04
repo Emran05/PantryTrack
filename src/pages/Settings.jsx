@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usePantry } from '../contexts/PantryContext';
-import { createPantry, inviteMemberByEmail, getAreas, createArea, deleteArea, getProfile, updateProfile } from '../lib/supabaseStorage';
+import { createPantry, joinPantryById, getAreas, createArea, deleteArea, getProfile, updateProfile } from '../lib/supabaseStorage';
 import { useToast } from '../components/ToastContext';
 import { resetTourFlag } from '../components/Tour';
 import ThemePicker from '../components/ThemePicker';
@@ -16,7 +16,7 @@ export default function Settings() {
   
   const [profile, setProfile] = useState({ first_name: '', last_name: '', venmo_handle: '' });
   const [newHomeName, setNewHomeName] = useState('');
-  const [inviteEmail, setInviteEmail] = useState('');
+  const [joinHomeId, setJoinHomeId] = useState('');
   const [areas, setAreas] = useState([]);
   const [newAreaName, setNewAreaName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -120,17 +120,30 @@ export default function Settings() {
     setLoading(false);
   };
 
-  const handleInvite = async (e) => {
+  const handleCopyHomeId = () => {
+    if (!activePantry) return;
+    navigator.clipboard.writeText(activePantry.id)
+      .then(() => showToast('Home ID copied to clipboard'))
+      .catch(() => showToast('Could not copy — try manually selecting the ID'));
+  };
+
+  const handleJoinHome = async (e) => {
     e.preventDefault();
-    if (!inviteEmail.trim() || !activePantry) return;
+    const id = joinHomeId.trim();
+    if (!id) return;
     setLoading(true);
     try {
-      await inviteMemberByEmail(activePantry.id, inviteEmail.trim());
-      setInviteEmail('');
-      showToast('Invitation sent!');
+      await joinPantryById(id);
+      await refreshPantries();
+      setJoinHomeId('');
+      showToast('Joined home successfully!');
     } catch (err) {
       console.error(err);
-      showToast('Failed to invite user. They might already be invited.');
+      if (err.code === 'ALREADY_MEMBER') {
+        showToast('You are already a member of this home');
+      } else {
+        showToast('Could not join — check the Home ID and try again');
+      }
     }
     setLoading(false);
   };
@@ -224,23 +237,38 @@ export default function Settings() {
 
         {activePantry && (
           <div className="settings-section">
-            <h3 className="settings-section-title">Invite to {activePantry.name}</h3>
+            <h3 className="settings-section-title">Share {activePantry.name}</h3>
             <div className="settings-card card">
-              <p className="settings-desc">Invite roommates or family to track inventory together.</p>
-              <form onSubmit={handleInvite} style={{ display: 'flex', gap: '8px' }}>
-                <input 
-                  type="email" 
-                  placeholder="roommate@example.com" 
-                  value={inviteEmail}
-                  onChange={e => setInviteEmail(e.target.value)}
-                  style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}
-                  required
-                />
-                <button type="submit" className="btn btn-primary" disabled={loading}>Invite</button>
-              </form>
+              <p className="settings-desc">Share your Home ID with roommates or family. They paste it in the "Join a Home" section below.</p>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <code style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-secondary)', fontSize: '0.78rem', overflowX: 'auto', whiteSpace: 'nowrap' }}>
+                  {activePantry.id}
+                </code>
+                <button className="btn btn-primary" onClick={handleCopyHomeId} style={{ flexShrink: 0 }}>
+                  Copy ID
+                </button>
+              </div>
             </div>
           </div>
         )}
+
+        <div className="settings-section">
+          <h3 className="settings-section-title">Join a Home</h3>
+          <div className="settings-card card">
+            <p className="settings-desc">Have a Home ID from a roommate? Paste it here to join their pantry.</p>
+            <form onSubmit={handleJoinHome} style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="text"
+                placeholder="Paste Home ID..."
+                value={joinHomeId}
+                onChange={e => setJoinHomeId(e.target.value)}
+                style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', fontFamily: 'monospace', fontSize: '0.85rem' }}
+                required
+              />
+              <button type="submit" className="btn btn-primary" disabled={loading}>Join</button>
+            </form>
+          </div>
+        </div>
 
         {activePantry && (
           <div className="settings-section">

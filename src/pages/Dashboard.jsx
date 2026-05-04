@@ -188,6 +188,21 @@ export default function Dashboard() {
     return { total, expired, expiringSoon, fresh, categories, upcomingExpiry, streakDays, savedEstimate, addedThisWeek, donutSegments };
   }, [items]);
 
+  if (loading) {
+    return (
+      <div className="page-content app-container">
+        <div className="dashboard-header animate-fade-in">
+          <h2 className="page-title">Dashboard</h2>
+          <p className="page-subtitle">Your pantry at a glance</p>
+        </div>
+        <div style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+          <div style={{ width: '32px', height: '32px', border: '3px solid var(--color-border)', borderTop: '3px solid var(--color-accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
+          Loading dashboard...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-content app-container">
       <div className="dashboard-header animate-fade-in">
@@ -376,9 +391,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {loading ? (
-        <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>Loading dashboard...</div>
-      ) : items.length === 0 && (
+      {items.length === 0 && (
         <div className="empty-state animate-fade-in">
           <div className="empty-state-icon">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
