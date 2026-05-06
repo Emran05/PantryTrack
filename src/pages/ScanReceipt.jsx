@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { addPantryItem, processReceiptImage } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
 import { CATEGORIES, UNITS, getDefaultExpirationDate } from '../lib/helpers';
@@ -14,6 +14,8 @@ export default function ScanReceipt() {
   const [parsedItems, setParsedItems] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDone, setIsDone] = useState(false);
+  // null | { code, message, resetLabel? }
+  const [scanError, setScanError] = useState(null);
   const { showToast } = useToast();
 
   const handleCapture = (e) => {
@@ -25,18 +27,19 @@ export default function ScanReceipt() {
       const dataUrl = ev.target.result;
       setPreview(dataUrl);
       setIsProcessing(true);
-      
+      setScanError(null);
+
       const mimeType = dataUrl.substring(dataUrl.indexOf(':') + 1, dataUrl.indexOf(';'));
       const imageBase64 = dataUrl.substring(dataUrl.indexOf(',') + 1);
 
       try {
         const items = await processReceiptImage(imageBase64, mimeType);
-        
+
         setParsedItems(items.map((item, i) => {
           const category = CATEGORIES.find(c => c.id === item.category) ? item.category : 'other';
-          return { 
-            ...item, 
-            _key: i, 
+          return {
+            ...item,
+            _key: i,
             _selected: true,
             category,
             unit: UNITS.includes(item.unit) ? item.unit : 'pcs',
@@ -44,8 +47,13 @@ export default function ScanReceipt() {
           };
         }));
       } catch (err) {
-        console.error(err);
-        showToast('Failed to parse receipt. Please try again.');
+        console.error('Receipt parse failed:', err);
+        // Coded errors get a dedicated banner; unknown errors fall back to a toast.
+        if (err.code === 'NO_API_KEY' || err.code === 'GEMINI_BAD_KEY' || err.code === 'RATE_LIMITED') {
+          setScanError({ code: err.code, message: err.message, resetLabel: err.resetLabel });
+        } else {
+          showToast('Failed to parse receipt. Please try again.');
+        }
         setPreview(null);
       } finally {
         setIsProcessing(false);
@@ -53,6 +61,8 @@ export default function ScanReceipt() {
     };
     reader.readAsDataURL(file);
   };
+
+  const clearScanError = () => setScanError(null);
 
   const toggleItem = (key) => {
     setParsedItems((prev) =>
@@ -123,6 +133,21 @@ export default function ScanReceipt() {
           <h2 className="page-title">Scan Receipt</h2>
           <p className="page-subtitle">Capture or upload a receipt to auto-import items</p>
         </div>
+
+        {scanError && (
+          <div className="scan-error-banner animate-fade-in">
+            <p>{scanError.message}</p>
+            {(scanError.code === 'NO_API_KEY' || scanError.code === 'GEMINI_BAD_KEY') ? (
+              <Link to="/settings" className="btn btn-secondary" onClick={clearScanError}>
+                Open Settings
+              </Link>
+            ) : (
+              <button type="button" className="btn btn-secondary" onClick={clearScanError}>
+                Dismiss
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Capture Zone */}
         {!preview && (

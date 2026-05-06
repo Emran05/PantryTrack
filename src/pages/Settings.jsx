@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usePantry } from '../contexts/PantryContext';
@@ -6,6 +6,8 @@ import { createPantry, joinPantryById, getAreas, createArea, deleteArea, getProf
 import { useToast } from '../components/ToastContext';
 import { resetTourFlag } from '../components/Tour';
 import ThemePicker from '../components/ThemePicker';
+import { getApiKey, setUserApiKey, getKeySource } from '../lib/gemini';
+import { getRateLimitStatus } from '../lib/rateLimit';
 import './Settings.css';
 
 export default function Settings() {
@@ -20,6 +22,49 @@ export default function Settings() {
   const [areas, setAreas] = useState([]);
   const [newAreaName, setNewAreaName] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // AI settings — Gemini key + rate limit status
+  const [aiKeyInput, setAiKeyInput] = useState('');
+  const [aiKeySource, setAiKeySource] = useState(getKeySource()); // null | 'env' | 'user'
+  const [aiQuotaTick, setAiQuotaTick] = useState(0);
+
+  const refreshAiStatus = useCallback(() => {
+    setAiKeySource(getKeySource());
+    setAiQuotaTick((t) => t + 1);
+  }, []);
+
+  // Refresh quota numbers every 30s while Settings is open. The token bucket
+  // refills continuously, so the displayed remaining count drifts upward.
+  useEffect(() => {
+    const id = setInterval(() => setAiQuotaTick((t) => t + 1), 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  const handleSaveApiKey = (e) => {
+    e.preventDefault();
+    const trimmed = aiKeyInput.trim();
+    if (!trimmed) {
+      showToast('Paste a Gemini API key first');
+      return;
+    }
+    setUserApiKey(trimmed);
+    setAiKeyInput('');
+    refreshAiStatus();
+    showToast('Gemini key saved on this device');
+  };
+
+  const handleClearApiKey = () => {
+    setUserApiKey(null);
+    setAiKeyInput('');
+    refreshAiStatus();
+    showToast('Gemini key removed');
+  };
+
+  // Quotas are recomputed each render. aiQuotaTick is the dep that forces the
+  // numbers to re-read every 30s and after key changes.
+  const recipeQuota = useMemo(() => getRateLimitStatus('recipes'), [aiQuotaTick]);
+  const receiptQuota = useMemo(() => getRateLimitStatus('receipts'), [aiQuotaTick]);
+  const aiConfigured = useMemo(() => !!getApiKey(), [aiKeySource]);
 
   useEffect(() => {
     async function fetchProfile() {
@@ -316,6 +361,84 @@ export default function Settings() {
           <h3 className="settings-section-title">Theme</h3>
           <div className="settings-card card">
             <ThemePicker />
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <h3 className="settings-section-title">AI</h3>
+          <div className="settings-card card">
+            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+              <span className="settings-label">Status</span>
+              <span className={`ai-status-pill ${aiConfigured ? 'ok' : 'warn'}`}>
+                {aiConfigured
+                  ? aiKeySource === 'user'
+                    ? 'Configured (your key)'
+                    : 'Configured (project key)'
+                  : 'Not configured'}
+              </span>
+            </div>
+
+            {!aiConfigured && (
+              <p className="settings-desc" style={{ marginTop: 8 }}>
+                AI recipe suggestions and receipt scanning need a Google Gemini API key. Free tier is plenty for personal use.
+              </p>
+            )}
+
+            <div className="ai-quota-grid">
+              <div className="ai-quota-cell">
+                <span className="ai-quota-label">Recipe suggestions</span>
+                <span className="ai-quota-value">
+                  {recipeQuota.remaining} <span className="ai-quota-max">/ {recipeQuota.capacity}</span>
+                </span>
+                <span className="ai-quota-sub">left this hour</span>
+              </div>
+              <div className="ai-quota-cell">
+                <span className="ai-quota-label">Receipt scans</span>
+                <span className="ai-quota-value">
+                  {receiptQuota.remaining} <span className="ai-quota-max">/ {receiptQuota.capacity}</span>
+                </span>
+                <span className="ai-quota-sub">left this hour</span>
+              </div>
+            </div>
+
+            <div style={{ height: 1, background: 'var(--color-border)', margin: '12px 0' }} />
+
+            <p className="settings-desc">
+              Use your own Gemini API key (overrides the project key, stored only on this device):
+            </p>
+            <form onSubmit={handleSaveApiKey} style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <input
+                type="password"
+                placeholder={aiKeySource === 'user' ? 'Replace existing key…' : 'Paste your Gemini API key'}
+                value={aiKeyInput}
+                onChange={(e) => setAiKeyInput(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', fontFamily: 'monospace', fontSize: '0.85rem' }}
+              />
+              <button type="submit" className="btn btn-primary">Save</button>
+            </form>
+            {aiKeySource === 'user' && (
+              <button
+                type="button"
+                onClick={handleClearApiKey}
+                className="btn btn-secondary"
+                style={{ marginTop: 8 }}
+              >
+                Remove my key
+              </button>
+            )}
+            <p className="settings-desc" style={{ marginTop: 12, fontSize: '0.78rem' }}>
+              Get a free key at{' '}
+              <a
+                href="https://aistudio.google.com/app/apikey"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: 'var(--color-accent)' }}
+              >
+                aistudio.google.com/app/apikey
+              </a>.
+            </p>
           </div>
         </div>
 

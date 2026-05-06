@@ -241,3 +241,27 @@
 .scan-success p {
   color: var(--color-text-muted);
 }
+
+/* ---- Error / configuration banner (NO_API_KEY, RATE_LIMITED, etc.) ---- */
+.scan-error-banner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  margin-bottom: var(--space-md);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.scan-error-banner p {
+  margin: 0;
+}
+
+.scan-error-banner .btn {
+  align-self: flex-start;
+  text-decoration: none;
+}

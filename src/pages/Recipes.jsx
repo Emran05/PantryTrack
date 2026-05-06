@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { getPantryItems, addShoppingItem } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
 import { getRecipeSuggestions, getAIRecipeSuggestions } from '../lib/recipes';
@@ -7,6 +8,10 @@ import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useToast } from '../components/ToastContext';
 import './Recipes.css';
 
+// Debounce so a flurry of realtime updates (e.g. importing 10 receipt items)
+// doesn't fire 10 AI calls in a row.
+const AI_DEBOUNCE_MS = 1200;
+
 export default function Recipes() {
   const { activePantry } = usePantry();
   const [items, setItems] = useState([]);
@@ -14,10 +19,12 @@ export default function Recipes() {
   const [expandedId, setExpandedId] = useState(null);
   const [aiRecipes, setAiRecipes] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState(false);
+  // aiError is now an object: null | { code, message, resetLabel? }
+  const [aiError, setAiError] = useState(null);
   const { showToast } = useToast();
   const aiRequestId = useRef(0);
   const fetchSeqRef = useRef(0);
+  const aiDebounceRef = useRef(null);
 
   const fetchItems = useCallback(async () => {
     if (!activePantry) return;
@@ -44,8 +51,8 @@ export default function Recipes() {
   // Local recipe suggestions (instant)
   const localSuggestions = useMemo(() => getRecipeSuggestions(items), [items]);
 
-  // Fetch AI recipes — extracted so retry button can call it
-  const fetchAI = useCallback(() => {
+  // Run an AI fetch immediately (used by the retry button).
+  const fetchAINow = useCallback(() => {
     if (items.length === 0) {
       setAiRecipes(null);
       return;
@@ -53,25 +60,40 @@ export default function Recipes() {
 
     const requestId = ++aiRequestId.current;
     setAiLoading(true);
-    setAiError(false);
+    setAiError(null);
 
     getAIRecipeSuggestions(items)
-      .then(recipes => {
+      .then((recipes) => {
         if (aiRequestId.current !== requestId) return;
         setAiRecipes(recipes);
       })
-      .catch(err => {
+      .catch((err) => {
         if (aiRequestId.current !== requestId) return;
         console.error('AI recipe error:', err);
-        setAiError(true);
+        setAiError({
+          code: err.code || 'GEMINI_ERROR',
+          message: err.message || 'AI suggestions are unavailable right now.',
+          resetLabel: err.resetLabel,
+        });
       })
       .finally(() => {
         if (aiRequestId.current === requestId) setAiLoading(false);
       });
   }, [items]);
 
+  // Debounced trigger so rapid pantry changes don't fire back-to-back AI calls.
+  const fetchAI = useCallback(() => {
+    if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
+    aiDebounceRef.current = setTimeout(() => {
+      fetchAINow();
+    }, AI_DEBOUNCE_MS);
+  }, [fetchAINow]);
+
   useEffect(() => {
     fetchAI();
+    return () => {
+      if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
+    };
   }, [fetchAI]);
 
   // Use AI recipes if available, otherwise local
@@ -146,12 +168,35 @@ export default function Recipes() {
         </div>
       )}
 
-      {/* AI Error — clickable retry */}
-      {aiError && !isUsingAI && (
-        <button className="ai-retry-banner animate-fade-in" onClick={fetchAI}>
-          <span>AI suggestions unavailable — showing local recipes. Tap to retry.</span>
-        </button>
-      )}
+      {/* AI Error — different copy per error code */}
+      {aiError && !isUsingAI && !aiLoading && (() => {
+        if (aiError.code === 'NO_API_KEY') {
+          return (
+            <Link to="/settings" className="ai-retry-banner animate-fade-in" style={{ display: 'flex', textDecoration: 'none' }}>
+              <span>Add your Gemini API key in Settings to enable AI recipes.</span>
+            </Link>
+          );
+        }
+        if (aiError.code === 'RATE_LIMITED') {
+          return (
+            <div className="ai-retry-banner animate-fade-in" style={{ cursor: 'default' }}>
+              <span>AI cooled down — try again in {aiError.resetLabel || 'a bit'}. Showing local recipes.</span>
+            </div>
+          );
+        }
+        if (aiError.code === 'GEMINI_BAD_KEY') {
+          return (
+            <Link to="/settings" className="ai-retry-banner animate-fade-in" style={{ display: 'flex', textDecoration: 'none' }}>
+              <span>Gemini rejected the key — open Settings to update it.</span>
+            </Link>
+          );
+        }
+        return (
+          <button className="ai-retry-banner animate-fade-in" onClick={fetchAINow}>
+            <span>AI suggestions unavailable — showing local recipes. Tap to retry.</span>
+          </button>
+        );
+      })()}
 
       {/* Expiring Soon Banner */}
       {expiringItems.length > 0 && (
