@@ -1,10 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { addPantryItem, processReceiptText, processReceiptImage } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
 import { CATEGORIES, UNITS, getDefaultExpirationDate } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
 import { readReceiptOCR } from '../lib/ocr/readReceiptOCR';
+import { readPendingScan, writePendingScan, clearPendingScan, dataUrlToBlob } from '../lib/scanPersistence';
 import './ScanReceipt.css';
 
 // If OCR produces fewer than this many characters of usable text, we treat it
@@ -26,91 +27,145 @@ export default function ScanReceipt() {
   const [scanError, setScanError] = useState(null);
   const { showToast } = useToast();
 
+  // Run the OCR + parse pipeline against a pending scan blob. Both fresh
+  // captures and resume-after-reload feed through here.
+  // `pending` may already include ocrText/ocrLines from a previous attempt —
+  // in that case OCR is skipped and we go straight to the Gemini parse.
+  const runPipeline = useCallback(async (pending) => {
+    if (!pending?.dataUrl) return;
+
+    setIsProcessing(true);
+    setScanError(null);
+    setOcrProgress(0);
+
+    // eslint-disable-next-line prefer-const
+    let { dataUrl, base64, mimeType, ocrText, ocrLines } = pending;
+
+    try {
+      // 1) Browser OCR — skip if we've already got text from a prior attempt.
+      if (!ocrText) {
+        setScanStage('ocr');
+        try {
+          const blob = await dataUrlToBlob(dataUrl);
+          const ocrResult = await readReceiptOCR(blob, setOcrProgress);
+          ocrText = ocrResult.rawText || '';
+          ocrLines = ocrResult.lines || [];
+          // Persist as soon as OCR succeeds so a refresh now skips OCR on resume.
+          writePendingScan({ ocrText, ocrLines });
+        } catch (ocrErr) {
+          console.warn('OCR failed, falling back to vision:', ocrErr);
+          // ocrText stays undefined → vision path below
+        }
+      }
+
+      // 2) Send to Gemini. Cheap text path when OCR was fruitful, expensive
+      //    vision path otherwise.
+      setScanStage('parsing');
+      let result;
+      const usableText = (ocrText || '').trim().length >= OCR_MIN_TEXT_CHARS;
+      if (usableText) {
+        result = await processReceiptText(ocrText, ocrLines || []);
+      } else {
+        if (ocrText !== undefined) {
+          // We got SOME text but not enough — explain the slower fallback.
+          showToast('OCR couldn\'t read clearly — using image fallback…', 'info', { duration: 3000 });
+        }
+        result = await processReceiptImage(base64, mimeType);
+      }
+
+      if (result.fellBack) {
+        showToast('Your key didn\'t work — used free tier. Update key in Settings.', 'info', { duration: 6000 });
+      }
+
+      const enriched = result.items.map((item, i) => {
+        const category = CATEGORIES.find((c) => c.id === item.category) ? item.category : 'other';
+        return {
+          ...item,
+          _key: i,
+          _selected: true,
+          category,
+          unit: UNITS.includes(item.unit) ? item.unit : 'pcs',
+          expirationDate: item.expiration_date || getDefaultExpirationDate(category, item.shelfLifeDays),
+        };
+      });
+      setParsedItems(enriched);
+      // Persist the parsed list — now a refresh would resume straight to review.
+      writePendingScan({ parsedItems: enriched });
+    } catch (err) {
+      console.error('Receipt parse failed:', err);
+      const banneredCodes = ['NO_API_KEY', 'GEMINI_BAD_KEY', 'RATE_LIMITED', 'GEMINI_RATE_LIMIT'];
+      if (banneredCodes.includes(err.code)) {
+        let message = err.message;
+        if (err.code === 'GEMINI_RATE_LIMIT') {
+          const wait = err.retryDelaySeconds
+            ? `try again in ${err.retryDelaySeconds}s`
+            : 'try again in a moment';
+          message = `Google throttled the request — ${wait}. Add your own key in Settings for more headroom.`;
+        }
+        setScanError({ code: err.code, message, resetLabel: err.resetLabel });
+      } else {
+        showToast('Failed to parse receipt. Please try again.');
+      }
+      setPreview(null);
+      clearPendingScan();
+    } finally {
+      setIsProcessing(false);
+      setScanStage('idle');
+    }
+  }, [showToast]);
+
+  // Resume an in-flight scan after a page reload. StrictMode mounts effects
+  // twice in dev — the ref guard makes sure we don't double-run the pipeline.
+  const hasResumedRef = useRef(false);
+  useEffect(() => {
+    if (hasResumedRef.current) return;
+    hasResumedRef.current = true;
+
+    const pending = readPendingScan();
+    if (!pending?.dataUrl) return;
+
+    setPreview(pending.dataUrl);
+
+    // If we already had a parsed list when the reload happened, skip everything
+    // and jump to the review screen.
+    if (Array.isArray(pending.parsedItems) && pending.parsedItems.length > 0) {
+      setParsedItems(pending.parsedItems);
+      return;
+    }
+
+    // Otherwise run the pipeline — runPipeline handles "OCR already done"
+    // internally so we don't pay for it twice when ocrText is in the blob.
+    runPipeline(pending);
+  }, [runPipeline]);
+
   const handleCapture = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Read the file once for the preview AND keep the File object for OCR.
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const dataUrl = ev.target.result;
-      setPreview(dataUrl);
-      setIsProcessing(true);
-      setScanError(null);
-      setOcrProgress(0);
+    // A new capture supersedes any half-finished one.
+    clearPendingScan();
 
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target.result;
       const mimeType = dataUrl.substring(dataUrl.indexOf(':') + 1, dataUrl.indexOf(';'));
       const imageBase64 = dataUrl.substring(dataUrl.indexOf(',') + 1);
 
-      try {
-        // 1) Browser OCR — local, free, but quality depends on the photo.
-        setScanStage('ocr');
-        let ocrResult = null;
-        let ocrFailed = false;
-        try {
-          ocrResult = await readReceiptOCR(file, setOcrProgress);
-        } catch (ocrErr) {
-          console.warn('OCR failed, will fall back to vision:', ocrErr);
-          ocrFailed = true;
-        }
+      setPreview(dataUrl);
 
-        // 2) Decide which path to send to Gemini.
-        //    Use the cheap text path when OCR returned readable text;
-        //    fall back to the (more expensive) vision path otherwise.
-        setScanStage('parsing');
-        let result;
-        const usableText = !ocrFailed && (ocrResult?.rawText || '').trim().length >= OCR_MIN_TEXT_CHARS;
-        if (usableText) {
-          result = await processReceiptText(ocrResult.rawText, ocrResult.lines);
-        } else {
-          if (!ocrFailed) {
-            // Tell the user we're switching paths — helps explain a slower call.
-            showToast('OCR couldn\'t read clearly — using image fallback…', 'info', { duration: 3000 });
-          }
-          result = await processReceiptImage(imageBase64, mimeType);
-        }
-        const items = result.items;
-
-        if (result.fellBack) {
-          showToast('Your key didn\'t work — used free tier. Update key in Settings.', 'info', { duration: 6000 });
-        }
-
-        setParsedItems(items.map((item, i) => {
-          const category = CATEGORIES.find(c => c.id === item.category) ? item.category : 'other';
-          return {
-            ...item,
-            _key: i,
-            _selected: true,
-            category,
-            unit: UNITS.includes(item.unit) ? item.unit : 'pcs',
-            expirationDate: item.expiration_date || getDefaultExpirationDate(category, item.shelfLifeDays)
-          };
-        }));
-      } catch (err) {
-        console.error('Receipt parse failed:', err);
-        // Coded errors get a dedicated banner; unknown errors fall back to a toast.
-        const banneredCodes = ['NO_API_KEY', 'GEMINI_BAD_KEY', 'RATE_LIMITED', 'GEMINI_RATE_LIMIT'];
-        if (banneredCodes.includes(err.code)) {
-          // Customize the GEMINI_RATE_LIMIT message with Google's retry hint
-          // when present.
-          let message = err.message;
-          if (err.code === 'GEMINI_RATE_LIMIT') {
-            const wait = err.retryDelaySeconds
-              ? `try again in ${err.retryDelaySeconds}s`
-              : 'try again in a moment';
-            message = `Google throttled the request — ${wait}. Add your own key in Settings for more headroom.`;
-          }
-          setScanError({ code: err.code, message, resetLabel: err.resetLabel });
-        } else {
-          showToast('Failed to parse receipt. Please try again.');
-        }
-        setPreview(null);
-      } finally {
-        setIsProcessing(false);
-        setScanStage('idle');
-      }
+      const pending = { dataUrl, base64: imageBase64, mimeType };
+      // Persist BEFORE OCR — that way a refresh during OCR can resume.
+      writePendingScan(pending);
+      runPipeline(pending);
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleScanAgain = () => {
+    clearPendingScan();
+    setPreview(null);
+    setParsedItems([]);
+    setScanError(null);
   };
 
   const clearScanError = () => setScanError(null);
@@ -157,6 +212,8 @@ export default function ScanReceipt() {
 
     if (succeeded > 0) {
       setIsDone(true);
+      // Import landed — discard the persisted blob so the next visit starts clean.
+      clearPendingScan();
       if (failed > 0) {
         showToast(`${succeeded} added, ${failed} failed — check your pantry`);
       } else {
@@ -244,6 +301,9 @@ export default function ScanReceipt() {
                 ) : (
                   <p>Scanning receipt…</p>
                 )}
+                <p className="scan-processing-hint">
+                  If you switch tabs we'll pick up where we left off.
+                </p>
               </div>
             )}
           </div>
@@ -327,7 +387,7 @@ export default function ScanReceipt() {
               >
                 Add {selectedCount} item{selectedCount !== 1 ? 's' : ''} to Pantry
               </button>
-              <button className="btn btn-secondary btn-full" onClick={() => { setPreview(null); setParsedItems([]); }}>
+              <button className="btn btn-secondary btn-full" onClick={handleScanAgain}>
                 Scan Again
               </button>
             </div>

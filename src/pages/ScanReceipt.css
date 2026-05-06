@@ -282,3 +282,10 @@
   border-radius: var(--radius-full);
   transition: width 200ms ease;
 }
+
+.scan-processing-hint {
+  margin-top: var(--space-sm);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  opacity: 0.85;
+}
