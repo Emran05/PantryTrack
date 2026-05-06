@@ -5,7 +5,7 @@
 // versioned in this repo and was failing in practice. If/when an edge function
 // gets deployed, set VITE_USE_EDGE_AI=true to flip back to the server path.
 
-import { generateRecipesGemini, hasApiKey } from './gemini';
+import { generateRecipesGemini, hasUserKey, hasProjectKey, hasApiKey } from './gemini';
 import { checkRateLimit, consumeRateToken, formatResetTime } from './rateLimit';
 import { getDaysUntilExpiration } from './helpers';
 
@@ -201,19 +201,24 @@ export function getRecipeSuggestions(pantryItems) {
 
 /**
  * AI-powered recipe suggestions via Gemini.
- * Returns personalized recipes based on actual pantry contents.
- * Prioritizes expiring items to reduce food waste.
  *
- * Throws errors with useful `code` values:
- *   NO_API_KEY    — user hasn't configured a Gemini key
- *   RATE_LIMITED  — local rate limit hit; err.resetIn (ms), err.resetLabel
- *   GEMINI_*      — see lib/gemini.js for the full set
+ * Tier behavior:
+ *   - If user has their own key, try `recipes_user` bucket first.
+ *   - If user bucket is empty (or no user key), try `recipes_project`.
+ *   - If gemini.js falls back mid-request (bad user key, server rate-limit
+ *     on user account), the project bucket is also charged.
  *
- * @param pantryItems pantry items
- * @param options { diet?: 'all'|'vegetarian'|'vegan'|'glutenfree'|'dairyfree' }
+ * Throws coded errors:
+ *   NO_API_KEY    — neither key configured
+ *   RATE_LIMITED  — both available tiers exhausted; err.resetIn (ms), err.resetLabel, err.tier
+ *   GEMINI_*      — see lib/gemini.js
+ *
+ * Returns { recipes, tier, fellBack }.
  */
 export async function getAIRecipeSuggestions(pantryItems, options = {}) {
-  if (!pantryItems || pantryItems.length === 0) return [];
+  if (!pantryItems || pantryItems.length === 0) {
+    return { recipes: [], tier: null, fellBack: false };
+  }
 
   if (!hasApiKey()) {
     const err = new Error('AI recipes are unavailable until you add a Gemini API key in Settings.');
@@ -221,14 +226,31 @@ export async function getAIRecipeSuggestions(pantryItems, options = {}) {
     throw err;
   }
 
-  // Pre-flight rate limit check so the user sees the friendly message instead
-  // of burning through a network request first.
-  const limit = checkRateLimit('recipes');
-  if (!limit.allowed) {
-    const err = new Error(`Rate limit reached — try again in ${formatResetTime(limit.resetIn)}.`);
+  // Pre-flight: figure out which bucket(s) we're allowed to draw from.
+  const userAvailable = hasUserKey();
+  const projectAvailable = hasProjectKey();
+  const userLimit = userAvailable ? checkRateLimit('recipes_user') : null;
+  const projectLimit = projectAvailable ? checkRateLimit('recipes_project') : null;
+
+  let preferredTier;
+  let skipUser;
+  if (userAvailable && userLimit.allowed) {
+    preferredTier = 'user';
+    skipUser = false;
+  } else if (projectAvailable && projectLimit.allowed) {
+    preferredTier = 'project';
+    // If user has a key but is rate-limited, skip user tier in gemini.js so
+    // we don't burn a network call we can't account for.
+    skipUser = userAvailable;
+  } else {
+    // Both available tiers exhausted. Pick the soonest reset to surface.
+    const resets = [userLimit?.resetIn, projectLimit?.resetIn].filter((v) => v != null);
+    const resetIn = resets.length ? Math.min(...resets) : 0;
+    const err = new Error(`Rate limit reached — try again in ${formatResetTime(resetIn)}.`);
     err.code = 'RATE_LIMITED';
-    err.resetIn = limit.resetIn;
-    err.resetLabel = formatResetTime(limit.resetIn);
+    err.resetIn = resetIn;
+    err.resetLabel = formatResetTime(resetIn);
+    err.tier = userAvailable && !userLimit.allowed ? 'user' : 'project';
     throw err;
   }
 
@@ -243,15 +265,20 @@ export async function getAIRecipeSuggestions(pantryItems, options = {}) {
     daysLeft: item.expirationDate ? getDaysUntilExpiration(item.expirationDate) : undefined,
   }));
 
-  // Consume the token *before* the network call. If the call fails, the user
-  // hasn't burned a quota slot from the limiter's perspective — but they may
-  // have hit Google's server-side limit. Keeping the local limiter conservative
-  // is the safer choice.
-  consumeRateToken('recipes');
+  // Optimistically consume the preferred tier's bucket before the call.
+  // If gemini.js falls back to project, we'll charge that bucket too below.
+  consumeRateToken(`recipes_${preferredTier}`);
 
-  const recipes = await generateRecipesGemini(items, {
-    prioritizeExpiring: hasExpiring,
-    diet: options.diet,
-  });
-  return recipes;
+  const result = await generateRecipesGemini(
+    items,
+    { prioritizeExpiring: hasExpiring, diet: options.diet },
+    { skipUser }
+  );
+
+  // Mid-call fallback: account for the project tier too.
+  if (preferredTier === 'user' && result.tier === 'project') {
+    consumeRateToken('recipes_project');
+  }
+
+  return result; // { recipes, tier, fellBack }
 }

@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { getDefaultExpirationDate } from './helpers';
-import { parseReceiptGemini, hasApiKey } from './gemini';
+import { parseReceiptGemini, hasApiKey, hasUserKey, hasProjectKey } from './gemini';
 import { checkRateLimit, consumeRateToken, formatResetTime } from './rateLimit';
 
 // `ilike` treats % and _ as wildcards. Escape user input so a name like
@@ -481,10 +481,15 @@ export async function moveCheckedToPantry(pantryId) {
 /**
  * Parse a receipt image into pantry items using Gemini Vision.
  *
+ * Tier behavior mirrors getAIRecipeSuggestions: prefers the user's own key,
+ * transparently falls back to the project key on bad-key / quota errors.
+ *
  * Throws coded errors:
- *   NO_API_KEY    — user hasn't configured a Gemini key
- *   RATE_LIMITED  — local rate limit hit; err.resetLabel
+ *   NO_API_KEY    — neither key configured
+ *   RATE_LIMITED  — both tiers exhausted; err.resetLabel, err.tier
  *   GEMINI_*      — see lib/gemini.js
+ *
+ * Returns { items, tier, fellBack }.
  */
 export async function processReceiptImage(imageBase64, mimeType = 'image/jpeg') {
   if (!hasApiKey()) {
@@ -493,16 +498,34 @@ export async function processReceiptImage(imageBase64, mimeType = 'image/jpeg') 
     throw err;
   }
 
-  const limit = checkRateLimit('receipts');
-  if (!limit.allowed) {
-    const err = new Error(`Receipt scan limit reached — try again in ${formatResetTime(limit.resetIn)}.`);
+  const userAvailable = hasUserKey();
+  const projectAvailable = hasProjectKey();
+  const userLimit = userAvailable ? checkRateLimit('receipts_user') : null;
+  const projectLimit = projectAvailable ? checkRateLimit('receipts_project') : null;
+
+  let preferredTier;
+  let skipUser;
+  if (userAvailable && userLimit.allowed) {
+    preferredTier = 'user';
+    skipUser = false;
+  } else if (projectAvailable && projectLimit.allowed) {
+    preferredTier = 'project';
+    skipUser = userAvailable;
+  } else {
+    const resets = [userLimit?.resetIn, projectLimit?.resetIn].filter((v) => v != null);
+    const resetIn = resets.length ? Math.min(...resets) : 0;
+    const err = new Error(`Receipt scan limit reached — try again in ${formatResetTime(resetIn)}.`);
     err.code = 'RATE_LIMITED';
-    err.resetIn = limit.resetIn;
-    err.resetLabel = formatResetTime(limit.resetIn);
+    err.resetIn = resetIn;
+    err.resetLabel = formatResetTime(resetIn);
+    err.tier = userAvailable && !userLimit.allowed ? 'user' : 'project';
     throw err;
   }
 
-  consumeRateToken('receipts');
-  const items = await parseReceiptGemini(imageBase64, mimeType);
-  return items;
+  consumeRateToken(`receipts_${preferredTier}`);
+  const result = await parseReceiptGemini(imageBase64, mimeType, { skipUser });
+  if (preferredTier === 'user' && result.tier === 'project') {
+    consumeRateToken('receipts_project');
+  }
+  return result; // { items, tier, fellBack }
 }

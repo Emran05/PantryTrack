@@ -13,10 +13,22 @@
 // continuous — after exhausting, one token comes back every (window / capacity)
 // seconds.
 
+// Two tiers per AI feature:
+//   *_user    — when the user provided their own Gemini key. Generous since
+//               quota comes from their own free-tier account.
+//   *_project — when falling through to the project (shared) key. Stricter so
+//               one user can't burn down the project's daily allowance.
 export const BUCKETS = {
-  recipes: { capacity: 30, refillSeconds: 3600, label: 'recipe suggestions' },  // 30 / hour
-  receipts: { capacity: 10, refillSeconds: 3600, label: 'receipt scans' },      // 10 / hour
+  recipes_user:     { capacity: 30, refillSeconds: 3600, label: 'recipe suggestions (your key)' },
+  recipes_project:  { capacity: 15, refillSeconds: 3600, label: 'recipe suggestions (free tier)' },
+  receipts_user:    { capacity: 10, refillSeconds: 3600, label: 'receipt scans (your key)' },
+  receipts_project: { capacity: 5,  refillSeconds: 3600, label: 'receipt scans (free tier)' },
 };
+
+// Convenience: { feature, tier } → bucket name.
+export function bucketName(feature, tier) {
+  return `${feature}_${tier}`;
+}
 
 const KEY = (bucket) => `pantry_ratelimit_${bucket}`;
 
