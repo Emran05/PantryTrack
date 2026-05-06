@@ -12,6 +12,7 @@ export default function Auth() {
   const [lastName, setLastName] = useState('');
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState(null);
+  const [info, setInfo] = useState(null);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -24,14 +25,14 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setInfo(null);
 
-    let authError = null;
     if (isLogin) {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      authError = error;
+      if (error) setError(error.message);
     } else {
-      const { error } = await supabase.auth.signUp({ 
-        email, 
+      const { data, error } = await supabase.auth.signUp({
+        email,
         password,
         options: {
           data: {
@@ -40,18 +41,23 @@ export default function Auth() {
           }
         }
       });
-      authError = error;
+      if (error) {
+        setError(error.message);
+      } else if (data?.user && !data.session) {
+        // Project requires email confirmation — no session was issued.
+        // Without this, the user clicks "Sign up", sees nothing happen,
+        // and assumes the form is broken.
+        setInfo(`We sent a confirmation link to ${email}. Click it to finish signing up, then log in.`);
+      }
     }
 
-    if (authError) {
-      setError(authError.message);
-    }
     setLoading(false);
   };
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setError(null);
+    setInfo(null);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -71,6 +77,7 @@ export default function Auth() {
         <p className="auth-subtitle">{isLogin ? 'Welcome back' : 'Create an account to start tracking.'}</p>
         
         {error && <div className="auth-error">{error}</div>}
+        {info && <div className="auth-info">{info}</div>}
 
         <button 
           className="btn btn-secondary auth-google-btn" 
@@ -148,6 +155,7 @@ export default function Auth() {
           onClick={() => {
             setIsLogin(!isLogin);
             setError(null);
+            setInfo(null);
           }}
         >
           {isLogin ? "Don't have an account? Sign up" : "Already have an account? Log in"}

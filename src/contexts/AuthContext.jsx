@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { ensureProfileFromMetadata } from '../lib/supabaseStorage';
 
 const AuthContext = createContext({});
 
@@ -12,20 +13,34 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+      const u = session?.user ?? null;
+      setUser(u);
       setLoading(false);
+      if (u) ensureProfileFromMetadata(u);
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+      const u = session?.user ?? null;
+      setUser(u);
+      if (u) ensureProfileFromMetadata(u);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
+  const signOut = useCallback(async () => {
+    // Clear per-user local state so the next account doesn't inherit it.
+    try {
+      localStorage.removeItem('pantry_active_id');
+    } catch {
+      // localStorage may be unavailable (private mode) — ignore
+    }
+    return supabase.auth.signOut();
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, signOut: () => supabase.auth.signOut() }}>
+    <AuthContext.Provider value={{ user, loading, signOut }}>
       {loading ? (
         <div style={{
           height: '100dvh',

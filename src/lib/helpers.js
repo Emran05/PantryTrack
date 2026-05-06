@@ -26,6 +26,17 @@ export const DEFAULT_SHELF_LIFE = {
   other: 14,         // 2 weeks default
 };
 
+// Format a Date as YYYY-MM-DD using local components.
+// toISOString().split('T')[0] returns the UTC date, which can be off by a day
+// in non-UTC timezones (e.g. US west coast in the evening, anywhere east of UTC
+// in the early morning).
+function formatDateLocal(date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 /**
  * Returns a default expiration date string (YYYY-MM-DD) based on category.
  * Optionally accepts shelfLifeDays to override the category default.
@@ -34,7 +45,7 @@ export function getDefaultExpirationDate(category, shelfLifeDays) {
   const days = shelfLifeDays || DEFAULT_SHELF_LIFE[category] || DEFAULT_SHELF_LIFE.other;
   const date = new Date();
   date.setDate(date.getDate() + days);
-  return date.toISOString().split('T')[0];
+  return formatDateLocal(date);
 }
 
 export function getCategoryInfo(categoryId) {
