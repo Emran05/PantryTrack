@@ -1,10 +1,15 @@
 import { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { addPantryItem, processReceiptImage } from '../lib/supabaseStorage';
+import { addPantryItem, processReceiptText, processReceiptImage } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
 import { CATEGORIES, UNITS, getDefaultExpirationDate } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
+import { readReceiptOCR } from '../lib/ocr/readReceiptOCR';
 import './ScanReceipt.css';
+
+// If OCR produces fewer than this many characters of usable text, we treat it
+// as "OCR couldn't read the receipt" and try Gemini Vision on the original image.
+const OCR_MIN_TEXT_CHARS = 40;
 
 export default function ScanReceipt() {
   const navigate = useNavigate();
@@ -14,6 +19,9 @@ export default function ScanReceipt() {
   const [parsedItems, setParsedItems] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDone, setIsDone] = useState(false);
+  // 'idle' | 'ocr' | 'parsing' — drives the in-progress copy
+  const [scanStage, setScanStage] = useState('idle');
+  const [ocrProgress, setOcrProgress] = useState(0);
   // null | { code, message, resetLabel? }
   const [scanError, setScanError] = useState(null);
   const { showToast } = useToast();
@@ -22,18 +30,45 @@ export default function ScanReceipt() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Read the file once for the preview AND keep the File object for OCR.
     const reader = new FileReader();
     reader.onload = async (ev) => {
       const dataUrl = ev.target.result;
       setPreview(dataUrl);
       setIsProcessing(true);
       setScanError(null);
+      setOcrProgress(0);
 
       const mimeType = dataUrl.substring(dataUrl.indexOf(':') + 1, dataUrl.indexOf(';'));
       const imageBase64 = dataUrl.substring(dataUrl.indexOf(',') + 1);
 
       try {
-        const result = await processReceiptImage(imageBase64, mimeType);
+        // 1) Browser OCR — local, free, but quality depends on the photo.
+        setScanStage('ocr');
+        let ocrResult = null;
+        let ocrFailed = false;
+        try {
+          ocrResult = await readReceiptOCR(file, setOcrProgress);
+        } catch (ocrErr) {
+          console.warn('OCR failed, will fall back to vision:', ocrErr);
+          ocrFailed = true;
+        }
+
+        // 2) Decide which path to send to Gemini.
+        //    Use the cheap text path when OCR returned readable text;
+        //    fall back to the (more expensive) vision path otherwise.
+        setScanStage('parsing');
+        let result;
+        const usableText = !ocrFailed && (ocrResult?.rawText || '').trim().length >= OCR_MIN_TEXT_CHARS;
+        if (usableText) {
+          result = await processReceiptText(ocrResult.rawText, ocrResult.lines);
+        } else {
+          if (!ocrFailed) {
+            // Tell the user we're switching paths — helps explain a slower call.
+            showToast('OCR couldn\'t read clearly — using image fallback…', 'info', { duration: 3000 });
+          }
+          result = await processReceiptImage(imageBase64, mimeType);
+        }
         const items = result.items;
 
         if (result.fellBack) {
@@ -72,6 +107,7 @@ export default function ScanReceipt() {
         setPreview(null);
       } finally {
         setIsProcessing(false);
+        setScanStage('idle');
       }
     };
     reader.readAsDataURL(file);
@@ -193,7 +229,21 @@ export default function ScanReceipt() {
             {isProcessing && (
               <div className="scan-processing">
                 <div className="scan-spinner" />
-                <p>Scanning receipt...</p>
+                {scanStage === 'ocr' ? (
+                  <>
+                    <p>Reading receipt… {ocrProgress}%</p>
+                    <div className="scan-progress-track">
+                      <div
+                        className="scan-progress-fill"
+                        style={{ width: `${ocrProgress}%` }}
+                      />
+                    </div>
+                  </>
+                ) : scanStage === 'parsing' ? (
+                  <p>Extracting items…</p>
+                ) : (
+                  <p>Scanning receipt…</p>
+                )}
               </div>
             )}
           </div>

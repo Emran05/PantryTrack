@@ -265,3 +265,20 @@
   align-self: flex-start;
   text-decoration: none;
 }
+
+/* ---- OCR progress bar (under the spinner during scan) ---- */
+.scan-progress-track {
+  width: min(220px, 70%);
+  height: 6px;
+  margin-top: var(--space-sm);
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.scan-progress-fill {
+  height: 100%;
+  background: var(--color-accent, #22c55e);
+  border-radius: var(--radius-full);
+  transition: width 200ms ease;
+}

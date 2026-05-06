@@ -289,7 +289,64 @@ Rules:
 }
 
 /**
- * Parse a grocery receipt image and return extracted items.
+ * Parse OCR-extracted receipt text into structured items.
+ *
+ * Used as the primary path: ScanReceipt runs Tesseract.js in the browser, then
+ * sends the raw text + cleaned lines here. This is much cheaper than the Vision
+ * path (no image tokens) and works on the same rate-limit buckets as the Vision
+ * call so the Settings quota numbers stay meaningful.
+ *
+ * @param rawText  full OCR transcript
+ * @param lines    rawText split + trimmed; may be []
+ * @param tierOpts { skipUser?: boolean }
+ * @returns { items, tier, fellBack }
+ */
+export async function parseReceiptTextGemini(rawText, lines = [], tierOpts = {}) {
+  const linesBlock = lines.length ? lines.join('\n') : '(no clean lines)';
+  const prompt = `Parse this OCR-extracted grocery receipt. The OCR is imperfect — expect typos, missing letters, and stray characters. Use both the raw transcript and the cleaned lines to figure out what was bought.
+
+RAW TRANSCRIPT:
+${rawText}
+
+CLEANED LINES:
+${linesBlock}
+
+Return ONLY a JSON array (no commentary, no markdown fence):
+[
+  {
+    "name": "lowercase item (no brand prefix unless distinctive)",
+    "quantity": 1,
+    "unit": "pcs|lbs|oz|kg|g|L|mL|cups|bags|boxes|cans|bottles",
+    "category": "produce|dairy|meat|grains|frozen|beverages|snacks|condiments|other",
+    "shelfLifeDays": 7
+  }
+]
+
+Rules:
+- skip non-grocery lines: tax, total, subtotal, change, payment method, dates, addresses, store info, phone numbers, employee codes, receipt numbers
+- expand obvious abbreviations (CHCKN BRST → chicken breast, BNNS → bananas, GR BEEF → ground beef)
+- if unit is unclear from the text, default to "pcs"
+- if quantity is unclear, default to 1
+- shelfLifeDays should reflect typical fridge/pantry life of that item
+- ignore prices entirely
+- if a line looks like garbage OCR (only symbols, no recognisable word), skip it
+- prefer recall — include borderline grocery items rather than dropping them`;
+
+  const result = await callGeminiWithFallback([{ text: prompt }], { temperature: 0.2 }, tierOpts);
+  const items = parseJsonStrict(result.text);
+  if (!Array.isArray(items)) {
+    throw new GeminiError('Gemini did not return an item array', 'GEMINI_BAD_FORMAT', { raw: result.text });
+  }
+  return {
+    items,
+    tier: result.tier,
+    fellBack: result.fellBack,
+  };
+}
+
+/**
+ * Parse a grocery receipt image and return extracted items. Used as a fallback
+ * when OCR can't produce usable text (dark photo, weird angle, etc.).
  *
  * @param imageBase64 base64-encoded image (no data: prefix)
  * @param mimeType    one of image/jpeg, image/png, etc.

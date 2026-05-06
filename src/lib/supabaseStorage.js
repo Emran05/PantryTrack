@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { getDefaultExpirationDate } from './helpers';
-import { parseReceiptGemini, hasApiKey, hasUserKey, hasProjectKey } from './gemini';
+import { parseReceiptGemini, parseReceiptTextGemini, hasApiKey, hasUserKey, hasProjectKey } from './gemini';
 import { checkRateLimit, consumeRateToken, formatResetTime } from './rateLimit';
 
 // `ilike` treats % and _ as wildcards. Escape user input so a name like
@@ -478,20 +478,11 @@ export async function moveCheckedToPantry(pantryId) {
   return checked.length;
 }
 
-/**
- * Parse a receipt image into pantry items using Gemini Vision.
- *
- * Tier behavior mirrors getAIRecipeSuggestions: prefers the user's own key,
- * transparently falls back to the project key on bad-key / quota errors.
- *
- * Throws coded errors:
- *   NO_API_KEY    — neither key configured
- *   RATE_LIMITED  — both tiers exhausted; err.resetLabel, err.tier
- *   GEMINI_*      — see lib/gemini.js
- *
- * Returns { items, tier, fellBack }.
- */
-export async function processReceiptImage(imageBase64, mimeType = 'image/jpeg') {
+// Shared rate-limit pre-flight for any "receipts" path (image or OCR-text).
+// Picks the right tier given which keys are configured and which buckets have
+// tokens, then invokes `parser({ skipUser })` against gemini.js. If a mid-call
+// fallback fires, the project bucket is also charged so quota matches reality.
+async function withReceiptRateLimit(parser) {
   if (!hasApiKey()) {
     const err = new Error('Receipt scanning needs a Gemini API key — add one in Settings.');
     err.code = 'NO_API_KEY';
@@ -523,9 +514,29 @@ export async function processReceiptImage(imageBase64, mimeType = 'image/jpeg') 
   }
 
   consumeRateToken(`receipts_${preferredTier}`);
-  const result = await parseReceiptGemini(imageBase64, mimeType, { skipUser });
+  const result = await parser({ skipUser });
   if (preferredTier === 'user' && result.tier === 'project') {
     consumeRateToken('receipts_project');
   }
   return result; // { items, tier, fellBack }
+}
+
+/**
+ * Parse OCR-extracted receipt text into pantry items via Gemini.
+ * Primary scan path — much cheaper than Vision because there are no image tokens.
+ *
+ * Returns { items, tier, fellBack }.
+ */
+export async function processReceiptText(rawText, lines) {
+  return withReceiptRateLimit((tierOpts) => parseReceiptTextGemini(rawText, lines, tierOpts));
+}
+
+/**
+ * Parse a receipt image directly via Gemini Vision. Used as a fallback when
+ * the browser OCR returns nothing usable (very dark photo, weird crop, etc.).
+ *
+ * Returns { items, tier, fellBack }.
+ */
+export async function processReceiptImage(imageBase64, mimeType = 'image/jpeg') {
+  return withReceiptRateLimit((tierOpts) => parseReceiptGemini(imageBase64, mimeType, tierOpts));
 }
