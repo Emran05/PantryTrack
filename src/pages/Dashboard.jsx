@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getPantryItems } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
@@ -107,22 +107,26 @@ export default function Dashboard() {
   const [animatedCard, setAnimatedCard] = useState(null);
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const fetchSeqRef = useRef(0);
 
   const fetchItems = useCallback(() => {
-    if (activePantry) {
-      getPantryItems(activePantry.id).then(data => {
-        setItems(data);
-        setLoading(false);
-      }).catch(err => {
-        console.error('Failed to load dashboard items:', err);
-        showToast('Failed to load dashboard data');
-        setLoading(false);
-      });
-    }
+    if (!activePantry) return;
+    const seq = ++fetchSeqRef.current;
+    getPantryItems(activePantry.id).then(data => {
+      if (seq !== fetchSeqRef.current) return;
+      setItems(data);
+      setLoading(false);
+    }).catch(err => {
+      if (seq !== fetchSeqRef.current) return;
+      console.error('Failed to load dashboard items:', err);
+      showToast('Failed to load dashboard data');
+      setLoading(false);
+    });
   }, [activePantry, showToast]);
 
   useEffect(() => {
     setLoading(true);
+    setItems([]);
     fetchItems();
   }, [fetchItems]);
 
@@ -198,6 +202,64 @@ export default function Dashboard() {
         <div style={{ padding: '3rem 1rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
           <div style={{ width: '32px', height: '32px', border: '3px solid var(--color-border)', borderTop: '3px solid var(--color-accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
           Loading dashboard...
+        </div>
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    // Skip the highlight cards / stat grid — they would render fake zeros above
+    // the empty state and confuse a brand-new user.
+    return (
+      <div className="page-content app-container">
+        <div className="dashboard-header animate-fade-in">
+          <h2 className="page-title">Dashboard</h2>
+          <p className="page-subtitle">Your pantry at a glance</p>
+        </div>
+        <div className="quick-actions animate-fade-in">
+          <button className="quick-action-btn" onClick={() => navigate('/item/new')}>
+            <div className="quick-action-icon" style={{ background: 'var(--color-accent-soft)', color: 'var(--color-accent)' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </div>
+            <span>Add Item</span>
+          </button>
+          <button className="quick-action-btn" onClick={() => navigate('/scan')}>
+            <div className="quick-action-icon" style={{ background: 'rgba(59, 130, 246, 0.12)', color: 'var(--color-info)' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" />
+              </svg>
+            </div>
+            <span>Scan</span>
+          </button>
+          <button className="quick-action-btn" onClick={() => navigate('/recipes')}>
+            <div className="quick-action-icon" style={{ background: 'rgba(249, 115, 22, 0.12)', color: '#f97316' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+              </svg>
+            </div>
+            <span>Recipes</span>
+          </button>
+          <button className="quick-action-btn" onClick={() => navigate('/shopping')}>
+            <div className="quick-action-icon" style={{ background: 'rgba(168, 85, 247, 0.12)', color: '#a855f7' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+              </svg>
+            </div>
+            <span>Shop</span>
+          </button>
+        </div>
+        <div className="empty-state animate-fade-in">
+          <div className="empty-state-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="20" x2="18" y2="10" />
+              <line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+          </div>
+          <h3>No data yet</h3>
+          <p>Add items to your pantry to see stats here</p>
         </div>
       </div>
     );
@@ -391,19 +453,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {items.length === 0 && (
-        <div className="empty-state animate-fade-in">
-          <div className="empty-state-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="20" x2="18" y2="10" />
-              <line x1="12" y1="20" x2="12" y2="4" />
-              <line x1="6" y1="20" x2="6" y2="14" />
-            </svg>
-          </div>
-          <h3>No data yet</h3>
-          <p>Add items to your pantry to see stats here</p>
-        </div>
-      )}
     </div>
   );
 }

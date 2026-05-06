@@ -11,12 +11,11 @@
   top: 0;
   right: 0;
   bottom: 0;
-  width: 120px;
+  width: 168px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-danger);
+  align-items: stretch;
   border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  overflow: hidden;
   opacity: 0;
   transition: opacity var(--transition-fast);
 }
@@ -25,14 +24,36 @@
   opacity: 1;
 }
 
-.item-card-swipe-delete {
+.item-card-swipe-action > button {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-xs);
+  justify-content: center;
+  gap: 2px;
+  border: none;
   color: white;
   font-size: var(--font-size-xs);
   font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  transition: filter 120ms ease;
+}
+
+.item-card-swipe-action > button:active {
+  filter: brightness(0.85);
+}
+
+.item-card-swipe-use {
+  background: var(--color-accent, #22c55e);
+}
+
+.item-card-swipe-list {
+  background: #3b82f6;
+}
+
+.item-card-swipe-delete {
+  background: var(--color-danger, #ef4444);
 }
 
 /* ---- Item Card ---- */
@@ -139,4 +160,62 @@
   .item-card-delete {
     opacity: 0.6;
   }
+}
+
+.item-card-pin {
+  position: absolute;
+  top: var(--space-sm);
+  left: var(--space-sm);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-muted);
+  border: none;
+  cursor: pointer;
+  opacity: 0.35;
+  transition: all var(--transition-fast);
+  z-index: 1;
+}
+
+.item-card:hover .item-card-pin,
+.item-card:active .item-card-pin {
+  opacity: 0.7;
+}
+
+.item-card-pin.pinned {
+  opacity: 1;
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.item-card-pin:hover {
+  background: var(--color-bg-card-hover);
+}
+
+.item-card-pin.pinned:hover {
+  background: var(--color-accent-soft);
+  filter: brightness(1.1);
+}
+
+@media (hover: none) {
+  .item-card-pin {
+    opacity: 0.5;
+  }
+  .item-card-pin.pinned {
+    opacity: 1;
+  }
+}
+
+/* When pinned, the card name shifts right slightly to clear the pin badge */
+.item-card-pin.pinned ~ .item-card-top .item-card-name {
+  padding-left: 28px;
+}
+
+/* Subtle accent stripe on the wrapper to mark pinned items in the list */
+.item-card-wrapper.pinned .item-card {
+  box-shadow: inset 3px 0 0 var(--color-accent);
 }

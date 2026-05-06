@@ -17,17 +17,22 @@ export default function Recipes() {
   const [aiError, setAiError] = useState(false);
   const { showToast } = useToast();
   const aiRequestId = useRef(0);
+  const fetchSeqRef = useRef(0);
 
   const fetchItems = useCallback(async () => {
     if (!activePantry) return;
+    const seq = ++fetchSeqRef.current;
     setLoading(true);
     try {
       const data = await getPantryItems(activePantry.id);
+      if (seq !== fetchSeqRef.current) return;
       setItems(data);
     } catch (err) {
+      if (seq !== fetchSeqRef.current) return;
       console.error('Failed to load items for recipes', err);
+    } finally {
+      if (seq === fetchSeqRef.current) setLoading(false);
     }
-    setLoading(false);
   }, [activePantry]);
 
   useEffect(() => {
@@ -88,16 +93,39 @@ export default function Recipes() {
   const handleAddMissing = async (e, recipe) => {
     e.stopPropagation();
     if (recipe.missing.length === 0 || !activePantry) return;
-    try {
-      await Promise.allSettled(
-        recipe.missing.map((ingredient) =>
-          addShoppingItem(activePantry.id, { name: ingredient, quantity: 1, unit: 'pcs' }, { skipDuplicateCheck: true })
-        )
-      );
-      showToast(`${recipe.missing.length} item${recipe.missing.length !== 1 ? 's' : ''} added to shopping list`);
-    } catch (err) {
-      console.error(err);
-      showToast('Error adding to shopping list');
+
+    // Don't skip duplicate check — clicking twice would otherwise pile up dupes.
+    // Inspect each result so the toast reflects what actually happened.
+    const results = await Promise.allSettled(
+      recipe.missing.map((ingredient) =>
+        addShoppingItem(activePantry.id, { name: ingredient, quantity: 1, unit: 'pcs' })
+      )
+    );
+
+    let added = 0;
+    let alreadyOnList = 0;
+    let failed = 0;
+    for (const r of results) {
+      if (r.status === 'fulfilled') {
+        added++;
+      } else if (r.reason?.code === 'DUPLICATE_ITEM') {
+        alreadyOnList++;
+      } else {
+        failed++;
+        console.error('Failed to add ingredient to shopping list:', r.reason);
+      }
+    }
+
+    if (added === 0 && alreadyOnList > 0 && failed === 0) {
+      showToast('All ingredients are already on your list');
+    } else if (added === 0 && failed > 0) {
+      showToast('Could not add ingredients — please try again');
+    } else if (failed > 0) {
+      showToast(`${added} added, ${failed} failed`);
+    } else if (alreadyOnList > 0) {
+      showToast(`${added} added · ${alreadyOnList} already on list`);
+    } else {
+      showToast(`${added} item${added !== 1 ? 's' : ''} added to shopping list`);
     }
   };
 
