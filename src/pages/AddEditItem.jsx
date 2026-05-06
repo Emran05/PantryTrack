@@ -28,14 +28,17 @@ export default function AddEditItem() {
   const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     async function load() {
       if (!activePantry) return;
       try {
         const fetchedAreas = await getAreas(activePantry.id);
+        if (cancelled) return;
         setAreas(fetchedAreas || []);
 
         if (isEditing) {
           const items = await getPantryItems(activePantry.id);
+          if (cancelled) return;
           const item = items.find((i) => String(i.id) === String(id));
           if (item) {
             setForm({
@@ -47,15 +50,24 @@ export default function AddEditItem() {
               notes: item.notes || '',
               area_id: item.area_id || '',
             });
+          } else {
+            // The item isn't in this pantry (user switched homes, or stale URL).
+            // Bail out before the form lets the user submit an UPDATE against
+            // an item they may no longer own.
+            showToast('Item not found in this home');
+            navigate('/', { replace: true });
+            return;
           }
         }
       } catch (err) {
         console.error('Failed to load item or areas', err);
+        if (!cancelled) showToast('Failed to load item');
       }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     }
     load();
-  }, [id, isEditing, activePantry]);
+    return () => { cancelled = true; };
+  }, [id, isEditing, activePantry, navigate, showToast]);
 
   // Handle barcode scanning startup and teardown
   useEffect(() => {

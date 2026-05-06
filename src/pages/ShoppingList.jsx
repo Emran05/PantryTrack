@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   getShoppingList,
   addShoppingItem,
@@ -21,22 +21,26 @@ export default function ShoppingList() {
   const [unit, setUnit] = useState('pcs');
   const [category, setCategory] = useState('other');
   const { showToast } = useToast();
+  const fetchSeqRef = useRef(0);
 
   const refresh = useCallback(async () => {
-    if (activePantry) {
-      try {
-        const data = await getShoppingList(activePantry.id);
-        setItems(data);
-      } catch (err) {
-        console.error('Failed to load shopping list:', err);
-        showToast('Failed to load shopping list');
-      }
+    if (!activePantry) return;
+    const seq = ++fetchSeqRef.current;
+    try {
+      const data = await getShoppingList(activePantry.id);
+      if (seq !== fetchSeqRef.current) return;
+      setItems(data);
+    } catch (err) {
+      if (seq !== fetchSeqRef.current) return;
+      console.error('Failed to load shopping list:', err);
+      showToast('Failed to load shopping list');
     }
   }, [activePantry, showToast]);
 
   useEffect(() => {
     if (activePantry) {
       setLoading(true);
+      setItems([]);
       refresh().finally(() => setLoading(false));
     }
   }, [activePantry, refresh]);

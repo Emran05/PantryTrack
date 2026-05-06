@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { getPantryItems, deletePantryItem } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
 import { CATEGORIES } from '../lib/helpers';
@@ -15,22 +15,30 @@ export default function Pantry() {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const { showToast } = useToast();
+  const fetchSeqRef = useRef(0);
 
   const refresh = useCallback(async () => {
-    if (activePantry) {
-      try {
-        const data = await getPantryItems(activePantry.id);
-        setItems(data);
-      } catch (err) {
-        console.error('Failed to load pantry items:', err);
-        showToast('Failed to load pantry items');
-      }
+    if (!activePantry) return;
+    const seq = ++fetchSeqRef.current;
+    try {
+      const data = await getPantryItems(activePantry.id);
+      // If the user switched pantries while this request was in flight,
+      // a newer fetch already started — discard this stale response.
+      if (seq !== fetchSeqRef.current) return;
+      setItems(data);
+    } catch (err) {
+      if (seq !== fetchSeqRef.current) return;
+      console.error('Failed to load pantry items:', err);
+      showToast('Failed to load pantry items');
     }
   }, [activePantry, showToast]);
 
   useEffect(() => {
     if (activePantry) {
       setLoading(true);
+      // Clear stale items immediately so the user doesn't see another
+      // pantry's contents flash before the fresh fetch lands.
+      setItems([]);
       refresh().finally(() => setLoading(false));
     }
   }, [activePantry, refresh]);
