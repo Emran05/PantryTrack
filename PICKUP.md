@@ -13,13 +13,21 @@ because later items reuse foundations from earlier items.
 These are merged into the codebase and verified by `npm run build`:
 
 ### AI infrastructure (replaces broken Supabase edge functions)
-- **`src/lib/gemini.js`** — direct Gemini REST client. Exports `generateRecipesGemini`, `parseReceiptGemini`, `getApiKey`, `setUserApiKey`, `hasApiKey`, `getKeySource`. Key resolution: localStorage override > `VITE_GEMINI_API_KEY` env. Defaults to `gemini-2.0-flash`; override via `VITE_GEMINI_MODEL`. Throws coded errors: `NO_API_KEY`, `GEMINI_BAD_KEY`, `GEMINI_RATE_LIMIT`, `GEMINI_BLOCKED`, `GEMINI_BAD_FORMAT`, etc.
-- **`src/lib/rateLimit.js`** — token-bucket per bucket. `recipes` = 30/hour, `receipts` = 10/hour. Linear refill so the user isn't blocked the full hour after one overshoot. Exports `checkRateLimit`, `consumeRateToken`, `getRateLimitStatus`, `resetBucket`, `formatResetTime`.
-- **`src/lib/recipes.js`** `getAIRecipeSuggestions` — pre-flight rate check, throws `RATE_LIMITED` / `NO_API_KEY` / `GEMINI_*`. Accepts `{ diet }` option (already plumbed; Recipes UI not yet wired to it — see Dietary filter below).
-- **`src/lib/supabaseStorage.js`** `processReceiptImage` — same wiring; throws coded errors that ScanReceipt now branches on.
-- **Recipes page** — debounced AI fetch (1.2s) so realtime ticks don't burn quota; differentiated banners for `NO_API_KEY` (link to Settings), `GEMINI_BAD_KEY` (link to Settings), `RATE_LIMITED` (shows reset time), generic (retry button).
-- **ScanReceipt page** — error banner with "Open Settings" CTA when key is missing or rejected.
-- **Settings → AI section** — status pill (Configured / Not configured / your key), live quota readout, key override field, "Get a free key" link.
+- **`src/lib/gemini.js`** — direct Gemini REST client with two-tier key fallback.
+  - Key accessors: `getUserKey()` (localStorage `pantry_gemini_key`, set in Settings), `getProjectKey()` (build-time `VITE_GEMINI_API_KEY`), `getApiKey()` (user-or-project), `hasUserKey()`, `hasProjectKey()`, `getKeySource()` returning `'user'|'project'|null`.
+  - `callGeminiWithFallback(parts, generationConfig, { skipUser? })` — tries user first; falls back to project on `GEMINI_BAD_KEY` (401/403/400-with-invalid-key body) or `GEMINI_RATE_LIMIT` (429). Returns `{ text, tier, fellBack }`.
+  - `generateRecipesGemini(items, opts, tierOpts)` and `parseReceiptGemini(b64, mime, tierOpts)` return `{ recipes/items, tier, fellBack }`. `tierOpts.skipUser` lets the caller force project tier (used when user bucket is rate-limited).
+  - Defaults to `gemini-2.0-flash`; override via `VITE_GEMINI_MODEL`.
+  - Coded errors: `NO_API_KEY`, `GEMINI_BAD_KEY`, `GEMINI_RATE_LIMIT`, `GEMINI_BLOCKED`, `GEMINI_BAD_FORMAT`, `GEMINI_NETWORK`, `GEMINI_HTTP_ERROR`, `GEMINI_EMPTY`.
+- **`src/lib/rateLimit.js`** — four buckets, project tiers tighter than user tiers (project key is shared across users):
+  - `recipes_user` = 30/hour, `recipes_project` = 15/hour
+  - `receipts_user` = 10/hour, `receipts_project` = 5/hour
+  - Token bucket with linear refill. Exports `checkRateLimit`, `consumeRateToken`, `getRateLimitStatus`, `resetBucket`, `formatResetTime`, `bucketName`.
+- **`src/lib/recipes.js`** `getAIRecipeSuggestions` — pre-flight checks both tiers, optimistically consumes preferred tier, charges project tier too if mid-call fallback fires. Throws `NO_API_KEY` (neither key configured) or `RATE_LIMITED` (both available tiers exhausted, with `err.tier` and shortest reset). Returns `{ recipes, tier, fellBack }`.
+- **`src/lib/supabaseStorage.js`** `processReceiptImage` — same wiring, returns `{ items, tier, fellBack }`.
+- **Recipes page** — debounced AI fetch (1.2s). Differentiated banners for `NO_API_KEY` / `GEMINI_BAD_KEY` (link to Settings), `RATE_LIMITED` (shows reset time and which tier hit), generic (retry button). Toasts "Your key didn't work — using free tier" once per session when fallback fires.
+- **ScanReceipt page** — same banner + fallback toast on receipt parse.
+- **Settings → AI section** — dual-tier status rows (Your key / Free tier with active/standby/off pills), separate quota readouts per tier (only relevant tiers render), key input with masked password field + Remove button, collapsible step-by-step guide for getting a free Gemini API key from Google AI Studio.
 
 ### Storage primitives — `src/lib/supabaseStorage.js`
 - **`consumePantryItem(itemId, amountToConsume)`** — decrements quantity; deletes the row if it would hit 0; returns `{ removed, prevQty, newQty, name, category, unit, ... }`. Rounds to 2dp.
