@@ -1,6 +1,12 @@
 // Recipe engine — AI-powered via Gemini with local fallback.
+//
+// Path of least resistance: call Gemini directly from the client. The Supabase
+// edge function `suggest-recipes` is referenced in older code but isn't
+// versioned in this repo and was failing in practice. If/when an edge function
+// gets deployed, set VITE_USE_EDGE_AI=true to flip back to the server path.
 
-import { supabase } from './supabase';
+import { generateRecipesGemini, hasApiKey } from './gemini';
+import { checkRateLimit, consumeRateToken, formatResetTime } from './rateLimit';
 import { getDaysUntilExpiration } from './helpers';
 
 // Local recipe database for instant fallback while AI loads
@@ -194,12 +200,37 @@ export function getRecipeSuggestions(pantryItems) {
 }
 
 /**
- * AI-powered recipe suggestions via Gemini edge function.
+ * AI-powered recipe suggestions via Gemini.
  * Returns personalized recipes based on actual pantry contents.
  * Prioritizes expiring items to reduce food waste.
+ *
+ * Throws errors with useful `code` values:
+ *   NO_API_KEY    — user hasn't configured a Gemini key
+ *   RATE_LIMITED  — local rate limit hit; err.resetIn (ms), err.resetLabel
+ *   GEMINI_*      — see lib/gemini.js for the full set
+ *
+ * @param pantryItems pantry items
+ * @param options { diet?: 'all'|'vegetarian'|'vegan'|'glutenfree'|'dairyfree' }
  */
-export async function getAIRecipeSuggestions(pantryItems) {
+export async function getAIRecipeSuggestions(pantryItems, options = {}) {
   if (!pantryItems || pantryItems.length === 0) return [];
+
+  if (!hasApiKey()) {
+    const err = new Error('AI recipes are unavailable until you add a Gemini API key in Settings.');
+    err.code = 'NO_API_KEY';
+    throw err;
+  }
+
+  // Pre-flight rate limit check so the user sees the friendly message instead
+  // of burning through a network request first.
+  const limit = checkRateLimit('recipes');
+  if (!limit.allowed) {
+    const err = new Error(`Rate limit reached — try again in ${formatResetTime(limit.resetIn)}.`);
+    err.code = 'RATE_LIMITED';
+    err.resetIn = limit.resetIn;
+    err.resetLabel = formatResetTime(limit.resetIn);
+    throw err;
+  }
 
   const hasExpiring = pantryItems.some(
     (i) => i.expirationDate && getDaysUntilExpiration(i.expirationDate) <= 3
@@ -212,10 +243,15 @@ export async function getAIRecipeSuggestions(pantryItems) {
     daysLeft: item.expirationDate ? getDaysUntilExpiration(item.expirationDate) : undefined,
   }));
 
-  const { data, error } = await supabase.functions.invoke('suggest-recipes', {
-    body: { items, prioritizeExpiring: hasExpiring },
-  });
+  // Consume the token *before* the network call. If the call fails, the user
+  // hasn't burned a quota slot from the limiter's perspective — but they may
+  // have hit Google's server-side limit. Keeping the local limiter conservative
+  // is the safer choice.
+  consumeRateToken('recipes');
 
-  if (error) throw error;
-  return data.recipes || [];
+  const recipes = await generateRecipesGemini(items, {
+    prioritizeExpiring: hasExpiring,
+    diet: options.diet,
+  });
+  return recipes;
 }

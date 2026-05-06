@@ -1,5 +1,7 @@
 import { supabase } from './supabase';
 import { getDefaultExpirationDate } from './helpers';
+import { parseReceiptGemini, hasApiKey } from './gemini';
+import { checkRateLimit, consumeRateToken, formatResetTime } from './rateLimit';
 
 // `ilike` treats % and _ as wildcards. Escape user input so a name like
 // "100% Juice" or "ice_cream" matches literally during duplicate checks.
@@ -476,10 +478,31 @@ export async function moveCheckedToPantry(pantryId) {
   return checked.length;
 }
 
+/**
+ * Parse a receipt image into pantry items using Gemini Vision.
+ *
+ * Throws coded errors:
+ *   NO_API_KEY    — user hasn't configured a Gemini key
+ *   RATE_LIMITED  — local rate limit hit; err.resetLabel
+ *   GEMINI_*      — see lib/gemini.js
+ */
 export async function processReceiptImage(imageBase64, mimeType = 'image/jpeg') {
-  const { data, error } = await supabase.functions.invoke('process-receipt', {
-    body: { imageBase64, mimeType }
-  });
-  if (error) throw error;
-  return data?.items ?? [];
+  if (!hasApiKey()) {
+    const err = new Error('Receipt scanning needs a Gemini API key — add one in Settings.');
+    err.code = 'NO_API_KEY';
+    throw err;
+  }
+
+  const limit = checkRateLimit('receipts');
+  if (!limit.allowed) {
+    const err = new Error(`Receipt scan limit reached — try again in ${formatResetTime(limit.resetIn)}.`);
+    err.code = 'RATE_LIMITED';
+    err.resetIn = limit.resetIn;
+    err.resetLabel = formatResetTime(limit.resetIn);
+    throw err;
+  }
+
+  consumeRateToken('receipts');
+  const items = await parseReceiptGemini(imageBase64, mimeType);
+  return items;
 }
