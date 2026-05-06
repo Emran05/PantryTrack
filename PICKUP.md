@@ -12,6 +12,15 @@ because later items reuse foundations from earlier items.
 
 These are merged into the codebase and verified by `npm run build`:
 
+### AI infrastructure (replaces broken Supabase edge functions)
+- **`src/lib/gemini.js`** — direct Gemini REST client. Exports `generateRecipesGemini`, `parseReceiptGemini`, `getApiKey`, `setUserApiKey`, `hasApiKey`, `getKeySource`. Key resolution: localStorage override > `VITE_GEMINI_API_KEY` env. Defaults to `gemini-2.0-flash`; override via `VITE_GEMINI_MODEL`. Throws coded errors: `NO_API_KEY`, `GEMINI_BAD_KEY`, `GEMINI_RATE_LIMIT`, `GEMINI_BLOCKED`, `GEMINI_BAD_FORMAT`, etc.
+- **`src/lib/rateLimit.js`** — token-bucket per bucket. `recipes` = 30/hour, `receipts` = 10/hour. Linear refill so the user isn't blocked the full hour after one overshoot. Exports `checkRateLimit`, `consumeRateToken`, `getRateLimitStatus`, `resetBucket`, `formatResetTime`.
+- **`src/lib/recipes.js`** `getAIRecipeSuggestions` — pre-flight rate check, throws `RATE_LIMITED` / `NO_API_KEY` / `GEMINI_*`. Accepts `{ diet }` option (already plumbed; Recipes UI not yet wired to it — see Dietary filter below).
+- **`src/lib/supabaseStorage.js`** `processReceiptImage` — same wiring; throws coded errors that ScanReceipt now branches on.
+- **Recipes page** — debounced AI fetch (1.2s) so realtime ticks don't burn quota; differentiated banners for `NO_API_KEY` (link to Settings), `GEMINI_BAD_KEY` (link to Settings), `RATE_LIMITED` (shows reset time), generic (retry button).
+- **ScanReceipt page** — error banner with "Open Settings" CTA when key is missing or rejected.
+- **Settings → AI section** — status pill (Configured / Not configured / your key), live quota readout, key override field, "Get a free key" link.
+
 ### Storage primitives — `src/lib/supabaseStorage.js`
 - **`consumePantryItem(itemId, amountToConsume)`** — decrements quantity; deletes the row if it would hit 0; returns `{ removed, prevQty, newQty, name, category, unit, ... }`. Rounds to 2dp.
 - **`getMembersWithProfiles(pantryId)`** — fetches `pantry_members` joined to `profiles` (id, first_name, last_name, venmo_handle). Two queries because the FK isn't declared. Returns `[{ ...member, profile }]`.
@@ -173,13 +182,11 @@ export function filterRecipesByDiet(recipes, diet) {
 }
 ```
 
-Pass `diet` to the AI edge function:
+Pass `diet` to `getAIRecipeSuggestions` — it already accepts `{ diet }` and forwards it to Gemini's prompt:
 ```js
-await supabase.functions.invoke('suggest-recipes', {
-  body: { items, prioritizeExpiring: hasExpiring, diet }
-});
+const recipes = await getAIRecipeSuggestions(items, { diet });
 ```
-Then also locally filter the AI response with `filterRecipesByDiet` as a defense-in-depth — the edge function may not yet honor the param.
+Then also locally filter the AI response with `filterRecipesByDiet` as a defense-in-depth — the model occasionally cheats.
 
 UI: chip row above the recipe list. State synced via `getDiet()` / `setDiet()`. Re-fetch AI on change (`fetchAI` is already a dep-sensitive callback).
 
@@ -425,3 +432,4 @@ Dashboard upgrade (11) — best done last; depends on actual consumption events
 - **Multi-device drift on localStorage data.** Pin/favorites/diet/waste log don't sync across devices. Acceptable for student MVP; flag for v4 if cross-device ships.
 - **Cook-this confidence.** `nameMatchesIngredient` is fuzzy; "almond milk" matches "milk" both ways. Cook-this should show users which pantry items it picked and let them deselect, not just blindly decrement.
 - **Web Push.** Still not done (needs server-side scheduled function). PICKUP doesn't include this — add separately when backend access is restored.
+- **Gemini key in client bundle.** Fine for personal use (Google enforces server-side quotas + we have client-side rate limiting on top). For a public/paid deployment, move the calls back behind a Supabase edge function or a small proxy and have the edge function read the key from its server-side env. Today's `gemini.js` is structured so the swap is mostly a body-replacement on `callGemini`.
