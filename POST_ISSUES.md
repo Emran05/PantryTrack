@@ -136,6 +136,166 @@ Each entry has:
 
 ---
 
+### BUG-N01 — `updatePantryItem` writes empty strings to date / UUID columns (FIXED)
+**What broke:** Editing an item and clearing the expiration date or selecting "No specific area" in the area dropdown caused a Supabase error. The form sends `expirationDate: ''` and `area_id: ''`, and `updatePantryItem` passed both straight through. Postgres rejects `''` as a date or as a UUID.
+
+**Root cause:** `addPantryItem` defensively coerces `item.expirationDate || null` and `item.area_id && item.area_id !== '' ? item.area_id : null` before insert, but `updatePantryItem` had no equivalent guard.
+
+**Location:** `src/lib/supabaseStorage.js:223-246`
+
+**Fix:** `updatePantryItem` now coerces empty `expirationDate` to `null`, coerces empty `area_id` to `null`, and trims/rejects blank `name` to mirror `addPantryItem`'s validation.
+
+**Lesson:** Mirror the validation surface between `add*` and `update*` storage functions. Anything `add` defends against, `update` must defend against too — forms can produce the same bad inputs in either flow.
+
+---
+
+### BUG-N02 — `ilike` duplicate check is wildcard-vulnerable (FIXED)
+**What broke:** The duplicate detection in `addPantryItem` and `addShoppingItem` used `.ilike('name', trimmedName)` with raw user input. Items containing `%` or `_` (e.g., "100% Juice", "ice_cream") would match unintended rows or skip real duplicates.
+
+**Root cause:** `ilike` treats `%` as "any string" and `_` as "any single char". Trimmed user input was inserted without escaping.
+
+**Location:** `src/lib/supabaseStorage.js:185, 281`
+
+**Fix:** Added an `escapeIlike()` helper that backslash-escapes `\`, `%`, and `_`. Both duplicate checks now call `.ilike('name', escapeIlike(trimmedName))`.
+
+**Lesson:** Anything that lands in a `LIKE` / `ILIKE` pattern needs explicit escaping of `%`, `_`, and the escape character itself. PostgREST does not escape these for you.
+
+---
+
+### BUG-N03 — `Recipes.handleAddMissing` always claims success (FIXED)
+**What broke:** Clicking "Add N missing to list" on a recipe card always toasted "N items added to shopping list" — even if every write rejected (network error, RLS denial, etc.). The handler used `Promise.allSettled` but never inspected the results, and the `try/catch` around `allSettled` was unreachable (allSettled never rejects). The handler also passed `skipDuplicateCheck: true`, so a second click silently piled up duplicates.
+
+**Root cause:** Two compounding mistakes — dead `try/catch` around an always-resolving promise, and a fire-and-forget `Promise.allSettled` whose results were discarded.
+
+**Location:** `src/pages/Recipes.jsx:88-102`
+
+**Fix:** Removed `skipDuplicateCheck` so the underlying `addShoppingItem` rejects with `DUPLICATE_ITEM` for items already on the list. Iterate `results` and bucket each into `added`, `alreadyOnList`, or `failed`. Toast text reflects the actual outcome (e.g., "3 added · 2 already on list").
+
+**Lesson:** `Promise.allSettled` never rejects — a `try/catch` around it cannot catch anything. If you use `allSettled`, you must inspect each result; otherwise use `Promise.all` and let it reject. And never silently `skipDuplicateCheck` on user-triggered actions where the user might click twice.
+
+---
+
+### BUG-N04 — `ItemCard.handleAddToList` shows generic error for known duplicate (FIXED)
+**What broke:** Swiping a pantry item to add it to the shopping list, when that item was already on the shopping list, showed a generic "Error adding to list" toast — confusing because the swipe ostensibly succeeded.
+
+**Root cause:** The `catch` block didn't branch on `err.code === 'DUPLICATE_ITEM'`. `ShoppingList.handleAdd` already had this branch; it was just missing here.
+
+**Location:** `src/components/ItemCard.jsx:70-87`
+
+**Fix:** Added the same `DUPLICATE_ITEM` branch — surfaces "X is already on your list" instead of a generic error.
+
+**Lesson:** When the storage layer throws a coded error, every caller must handle the code (or explicitly fall through with a comment). A grep for `'DUPLICATE_ITEM'` after introducing a new code is a cheap audit.
+
+---
+
+### BUG-N05 — Pantry-switch race overwrites with stale data (FIXED)
+**What broke:** All four data pages (Pantry, ShoppingList, Dashboard, Recipes) ran `getPantryItems(activePantry.id)` in a useCallback and naively `setItems(data)` on resolve. If the user switched pantries quickly, a slow first response could land *after* a fresh second response, overwriting current-pantry items with previous-pantry items.
+
+**Root cause:** Classic async race — no sequence/abort guard between the awaited fetch and the state setter.
+
+**Location:**
+- `src/pages/Pantry.jsx:19-36`
+- `src/pages/ShoppingList.jsx:25-42`
+- `src/pages/Dashboard.jsx:111-127`
+- `src/pages/Recipes.jsx:21-31`
+
+**Fix:** Added a `fetchSeqRef` to each page. Each refresh increments the seq and only commits state if its own seq is still the latest. Also `setItems([])` on `activePantry` change so the previous pantry's items don't flash before the fresh fetch lands.
+
+**Lesson:** Any async work that ends in `setState` and depends on a parameter that can change must guard against late arrivals. A monotonic ref counter is the cheapest way; `AbortController` is cleaner when the underlying transport supports it.
+
+---
+
+### BUG-N06 — Google OAuth signup leaves `profiles.first_name` blank (FIXED)
+**What broke:** Email signup collects first/last name and stores them in `auth.user_metadata`, but they were never propagated to the `profiles` table. Google OAuth users skipped the form entirely and had no chance to provide a name. Settings showed blank fields, and the user had to retype their name manually.
+
+**Root cause:** No client-side reconciliation between `auth.users.user_metadata` and `profiles`. The repo-versioned client assumes a `handle_new_user` DB trigger that may or may not exist.
+
+**Location:** `src/contexts/AuthContext.jsx`, new `ensureProfileFromMetadata` in `src/lib/supabaseStorage.js`
+
+**Fix:** New `ensureProfileFromMetadata(user)` storage helper reads `user.user_metadata.{first_name|given_name}` and `{last_name|family_name}`. If `profiles` is missing those fields, it upserts. AuthContext calls this on every auth change — idempotent, fire-and-forget.
+
+**Lesson:** Don't trust hidden DB triggers. Reconcile auth metadata to your own profile table from the client when the user lands. `given_name` / `family_name` are the standard OIDC claim names — most OAuth providers use them.
+
+---
+
+### BUG-N07 — Editing an item from a stale URL silently targets a different pantry's item (FIXED)
+**What broke:** `AddEditItem` loads all items in the active pantry then `find(i => i.id === id)`. If the user opened `/item/abc` for pantry A, then switched to pantry B before the page mounted, the find returned `undefined`. The form rendered blank, and submitting still called `updatePantryItem(id, form)` against the original ID — which RLS may reject loudly or, if the user owns both pantries, silently overwrite.
+
+**Root cause:** Missing guard between "item not found in current pantry" and "form is interactive".
+
+**Location:** `src/pages/AddEditItem.jsx:30-58`
+
+**Fix:** When `isEditing` and the item isn't in the active pantry's items, toast "Item not found in this home" and `navigate('/', { replace: true })` before the form ever mounts. Also added a `cancelled` flag for the effect so a late fetch can't update state after unmount.
+
+**Lesson:** When a route param implies "edit X", verify X exists in the current authorization context before allowing a write against it. "Not found" should redirect, not silently render an empty form pointed at a stranger's row.
+
+---
+
+### BUG-N08 — `processReceiptImage` throws TypeError on null edge-function response (FIXED)
+**What broke:** `data.items || []` throws `TypeError: Cannot read properties of null (reading 'items')` when the edge function returns `null` — which happens on timeout or non-200 response without an `error`.
+
+**Root cause:** Missing optional chain on `data`.
+
+**Location:** `src/lib/supabaseStorage.js:360-366`
+
+**Fix:** Use `data?.items ?? []`.
+
+**Lesson:** `supabase.functions.invoke` can return `{data: null, error: null}` for some failure modes. Always optional-chain before reading fields off `data`.
+
+---
+
+### BUG-N09 — `pantry_active_id` survives sign-out across users (FIXED)
+**What broke:** When user A logged out and user B logged in on the same device, B's session inherited A's `pantry_active_id` from localStorage. PantryContext then tried to set that as the default active pantry. If B didn't own it, the find quietly fell back to `data[0]` — but it's a privacy smell and one stale localStorage cycle from leaking the previous user's pantry ID via console / devtools.
+
+**Root cause:** `signOut` was a one-line passthrough that didn't clear per-user local state.
+
+**Location:** `src/contexts/AuthContext.jsx`
+
+**Fix:** Wrapped `signOut` to `localStorage.removeItem('pantry_active_id')` before calling `supabase.auth.signOut()`. Wrapped in try/catch for private-mode browsers.
+
+**Lesson:** Anything stored in localStorage scoped to the current user must be cleared on sign-out. Treat localStorage like a session — its lifetime should match the session it represents.
+
+---
+
+### BUG-N10 — Dashboard shows fake zeros above empty state (FIXED)
+**What broke:** When the pantry was genuinely empty (new user), the dashboard rendered "0 day streak", "$0 saved", "0 added" highlight cards plus four 0-valued stat cards, then "No data yet" at the bottom. The fake metrics undermined the empty state.
+
+**Root cause:** The render path computed stats from `items = []` unconditionally; the empty-state guard was at the bottom of the layout, after the widgets.
+
+**Location:** `src/pages/Dashboard.jsx`
+
+**Fix:** Added an early return when `items.length === 0` (after the loading check) that renders only the header, quick actions, and empty state — no metric widgets.
+
+**Lesson:** Empty states belong above any widget that derives from the empty data. Computing stats from nothing produces noise that buries the actual empty signal.
+
+---
+
+### BUG-N11 — Default expiration date drifts by a day in non-UTC timezones (FIXED)
+**What broke:** `getDefaultExpirationDate` did `setDate(getDate() + days)` in local time, then `toISOString().split('T')[0]` — which converts to UTC. For a user east of UTC in the very early morning (or west of UTC late at night), the UTC date would be one day off the local date, so the saved expiration date drifted.
+
+**Root cause:** Mixing local-time math with UTC serialization. `toISOString` returns the UTC date, not the local date.
+
+**Location:** `src/lib/helpers.js:33-38`
+
+**Fix:** Added a `formatDateLocal(date)` helper that formats `getFullYear` / `getMonth` / `getDate` directly into a YYYY-MM-DD string. The reading helpers (`getExpirationStatus`, `getDaysUntilExpiration`, `formatDate`) already parse with `dateStr + 'T00:00:00'` (local), so the round-trip is now consistent.
+
+**Lesson:** Never use `toISOString()` to format a "local date". Build the YYYY-MM-DD string from the date's local components. ISO dates are UTC by definition.
+
+---
+
+### BUG-N12 — Email-signup users not told to verify email (FIXED)
+**What broke:** When the Supabase project requires email confirmation, `supabase.auth.signUp` returns `{ data: {user, session: null}, error: null }`. The Auth page checked only `error`, so the user clicked Sign Up, saw nothing happen, and assumed the form was broken.
+
+**Root cause:** Missing branch on `data.user && !data.session` (the "needs confirmation" signal).
+
+**Location:** `src/pages/Auth.jsx`
+
+**Fix:** After signup, if `data.session` is null, show an info banner: "We sent a confirmation link to {email}. Click it to finish signing up, then log in." Added an `.auth-info` style alongside `.auth-error`. Banner clears on form toggle and Google sign-in.
+
+**Lesson:** Auth flows have three outcomes, not two — error, success-with-session, and success-without-session (pending verification). Handle all three explicitly.
+
+---
+
 ### BUG-F01 — Barcode scanner cleanup not called by React (FIXED)
 **What broke:** The scanner effect originally returned cleanup from inside `.then()`, which React cannot call. Camera stayed active after unmount.
 
