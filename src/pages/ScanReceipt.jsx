@@ -33,7 +33,12 @@ export default function ScanReceipt() {
       const imageBase64 = dataUrl.substring(dataUrl.indexOf(',') + 1);
 
       try {
-        const items = await processReceiptImage(imageBase64, mimeType);
+        const result = await processReceiptImage(imageBase64, mimeType);
+        const items = result.items;
+
+        if (result.fellBack) {
+          showToast('Your key didn\'t work — used free tier. Update key in Settings.', 'info', { duration: 6000 });
+        }
 
         setParsedItems(items.map((item, i) => {
           const category = CATEGORIES.find(c => c.id === item.category) ? item.category : 'other';
@@ -49,8 +54,18 @@ export default function ScanReceipt() {
       } catch (err) {
         console.error('Receipt parse failed:', err);
         // Coded errors get a dedicated banner; unknown errors fall back to a toast.
-        if (err.code === 'NO_API_KEY' || err.code === 'GEMINI_BAD_KEY' || err.code === 'RATE_LIMITED') {
-          setScanError({ code: err.code, message: err.message, resetLabel: err.resetLabel });
+        const banneredCodes = ['NO_API_KEY', 'GEMINI_BAD_KEY', 'RATE_LIMITED', 'GEMINI_RATE_LIMIT'];
+        if (banneredCodes.includes(err.code)) {
+          // Customize the GEMINI_RATE_LIMIT message with Google's retry hint
+          // when present.
+          let message = err.message;
+          if (err.code === 'GEMINI_RATE_LIMIT') {
+            const wait = err.retryDelaySeconds
+              ? `try again in ${err.retryDelaySeconds}s`
+              : 'try again in a moment';
+            message = `Google throttled the request — ${wait}. Add your own key in Settings for more headroom.`;
+          }
+          setScanError({ code: err.code, message, resetLabel: err.resetLabel });
         } else {
           showToast('Failed to parse receipt. Please try again.');
         }

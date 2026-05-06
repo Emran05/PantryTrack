@@ -52,6 +52,10 @@ export default function Recipes() {
   const localSuggestions = useMemo(() => getRecipeSuggestions(items), [items]);
 
   // Run an AI fetch immediately (used by the retry button).
+  // Show the "fell back to free tier" toast only once per session — if the
+  // user's key is consistently bad, we don't want to nag them every refresh.
+  const hasShownFallbackToastRef = useRef(false);
+
   const fetchAINow = useCallback(() => {
     if (items.length === 0) {
       setAiRecipes(null);
@@ -63,9 +67,14 @@ export default function Recipes() {
     setAiError(null);
 
     getAIRecipeSuggestions(items)
-      .then((recipes) => {
+      .then((result) => {
         if (aiRequestId.current !== requestId) return;
-        setAiRecipes(recipes);
+        setAiRecipes(result.recipes);
+
+        if (result.fellBack && !hasShownFallbackToastRef.current) {
+          hasShownFallbackToastRef.current = true;
+          showToast('Your key didn\'t work — using free tier. Update key in Settings.', 'info', { duration: 6000 });
+        }
       })
       .catch((err) => {
         if (aiRequestId.current !== requestId) return;
@@ -74,12 +83,14 @@ export default function Recipes() {
           code: err.code || 'GEMINI_ERROR',
           message: err.message || 'AI suggestions are unavailable right now.',
           resetLabel: err.resetLabel,
+          tier: err.tier,
+          retryDelaySeconds: err.retryDelaySeconds,
         });
       })
       .finally(() => {
         if (aiRequestId.current === requestId) setAiLoading(false);
       });
-  }, [items]);
+  }, [items, showToast]);
 
   // Debounced trigger so rapid pantry changes don't fire back-to-back AI calls.
   const fetchAI = useCallback(() => {
@@ -182,6 +193,18 @@ export default function Recipes() {
             <div className="ai-retry-banner animate-fade-in" style={{ cursor: 'default' }}>
               <span>AI cooled down — try again in {aiError.resetLabel || 'a bit'}. Showing local recipes.</span>
             </div>
+          );
+        }
+        if (aiError.code === 'GEMINI_RATE_LIMIT') {
+          // Google's server-side throttle (distinct from our local limiter).
+          // Most common reason: free-tier daily quota on the active key.
+          const wait = aiError.retryDelaySeconds
+            ? `Try again in ${aiError.retryDelaySeconds}s`
+            : 'Try again in a moment';
+          return (
+            <button className="ai-retry-banner animate-fade-in" onClick={fetchAINow}>
+              <span>Google throttled the request. {wait}, or add your own key in Settings for more headroom.</span>
+            </button>
           );
         }
         if (aiError.code === 'GEMINI_BAD_KEY') {

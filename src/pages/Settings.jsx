@@ -6,7 +6,7 @@ import { createPantry, joinPantryById, getAreas, createArea, deleteArea, getProf
 import { useToast } from '../components/ToastContext';
 import { resetTourFlag } from '../components/Tour';
 import ThemePicker from '../components/ThemePicker';
-import { getApiKey, setUserApiKey, getKeySource } from '../lib/gemini';
+import { setUserApiKey, getKeySource, hasUserKey, hasProjectKey } from '../lib/gemini';
 import { getRateLimitStatus } from '../lib/rateLimit';
 import './Settings.css';
 
@@ -62,9 +62,18 @@ export default function Settings() {
 
   // Quotas are recomputed each render. aiQuotaTick is the dep that forces the
   // numbers to re-read every 30s and after key changes.
-  const recipeQuota = useMemo(() => getRateLimitStatus('recipes'), [aiQuotaTick]);
-  const receiptQuota = useMemo(() => getRateLimitStatus('receipts'), [aiQuotaTick]);
-  const aiConfigured = useMemo(() => !!getApiKey(), [aiKeySource]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const recipeUserQuota = useMemo(() => getRateLimitStatus('recipes_user'), [aiQuotaTick]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const recipeProjectQuota = useMemo(() => getRateLimitStatus('recipes_project'), [aiQuotaTick]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const receiptUserQuota = useMemo(() => getRateLimitStatus('receipts_user'), [aiQuotaTick]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const receiptProjectQuota = useMemo(() => getRateLimitStatus('receipts_project'), [aiQuotaTick]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const userKeySet = useMemo(() => hasUserKey(), [aiKeySource]);
+  const projectKeySet = useMemo(() => hasProjectKey(), []);
 
   useEffect(() => {
     async function fetchProfile() {
@@ -367,49 +376,83 @@ export default function Settings() {
         <div className="settings-section">
           <h3 className="settings-section-title">AI</h3>
           <div className="settings-card card">
-            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-              <span className="settings-label">Status</span>
-              <span className={`ai-status-pill ${aiConfigured ? 'ok' : 'warn'}`}>
-                {aiConfigured
-                  ? aiKeySource === 'user'
-                    ? 'Configured (your key)'
-                    : 'Configured (project key)'
-                  : 'Not configured'}
-              </span>
+            <p className="settings-desc">
+              AI recipe suggestions and receipt scanning use Google Gemini. We try your personal key first; if it's missing or rejected, we fall back to a shared free-tier key.
+            </p>
+
+            {/* Tier status pills */}
+            <div className="ai-tiers">
+              <div className={`ai-tier-row ${userKeySet ? 'ok' : 'muted'}`}>
+                <div className="ai-tier-info">
+                  <span className="ai-tier-name">Your key</span>
+                  <span className="ai-tier-sub">
+                    {userKeySet ? 'Stored on this device' : 'Not set — using free tier'}
+                  </span>
+                </div>
+                <span className={`ai-status-pill ${userKeySet ? 'ok' : 'warn'}`}>
+                  {userKeySet ? 'Active' : 'Off'}
+                </span>
+              </div>
+              <div className={`ai-tier-row ${projectKeySet ? 'ok' : 'muted'}`}>
+                <div className="ai-tier-info">
+                  <span className="ai-tier-name">Free tier</span>
+                  <span className="ai-tier-sub">
+                    {projectKeySet
+                      ? userKeySet ? 'Standby — used if your key fails' : 'In use — limited quota'
+                      : 'Not configured by site'}
+                  </span>
+                </div>
+                <span className={`ai-status-pill ${projectKeySet ? 'ok' : 'warn'}`}>
+                  {projectKeySet ? 'Available' : 'Off'}
+                </span>
+              </div>
             </div>
 
-            {!aiConfigured && (
-              <p className="settings-desc" style={{ marginTop: 8 }}>
-                AI recipe suggestions and receipt scanning need a Google Gemini API key. Free tier is plenty for personal use.
-              </p>
+            {/* Quota readouts — only show the relevant tier(s) */}
+            <h4 className="ai-subhead">Hourly quota</h4>
+            {userKeySet && (
+              <div className="ai-quota-grid">
+                <div className="ai-quota-cell">
+                  <span className="ai-quota-label">Recipes (your key)</span>
+                  <span className="ai-quota-value">
+                    {recipeUserQuota.remaining} <span className="ai-quota-max">/ {recipeUserQuota.capacity}</span>
+                  </span>
+                </div>
+                <div className="ai-quota-cell">
+                  <span className="ai-quota-label">Receipts (your key)</span>
+                  <span className="ai-quota-value">
+                    {receiptUserQuota.remaining} <span className="ai-quota-max">/ {receiptUserQuota.capacity}</span>
+                  </span>
+                </div>
+              </div>
+            )}
+            {projectKeySet && (
+              <div className="ai-quota-grid" style={{ marginTop: userKeySet ? 8 : 0 }}>
+                <div className="ai-quota-cell">
+                  <span className="ai-quota-label">Recipes (free tier)</span>
+                  <span className="ai-quota-value">
+                    {recipeProjectQuota.remaining} <span className="ai-quota-max">/ {recipeProjectQuota.capacity}</span>
+                  </span>
+                </div>
+                <div className="ai-quota-cell">
+                  <span className="ai-quota-label">Receipts (free tier)</span>
+                  <span className="ai-quota-value">
+                    {receiptProjectQuota.remaining} <span className="ai-quota-max">/ {receiptProjectQuota.capacity}</span>
+                  </span>
+                </div>
+              </div>
             )}
 
-            <div className="ai-quota-grid">
-              <div className="ai-quota-cell">
-                <span className="ai-quota-label">Recipe suggestions</span>
-                <span className="ai-quota-value">
-                  {recipeQuota.remaining} <span className="ai-quota-max">/ {recipeQuota.capacity}</span>
-                </span>
-                <span className="ai-quota-sub">left this hour</span>
-              </div>
-              <div className="ai-quota-cell">
-                <span className="ai-quota-label">Receipt scans</span>
-                <span className="ai-quota-value">
-                  {receiptQuota.remaining} <span className="ai-quota-max">/ {receiptQuota.capacity}</span>
-                </span>
-                <span className="ai-quota-sub">left this hour</span>
-              </div>
-            </div>
+            <div style={{ height: 1, background: 'var(--color-border)', margin: '16px 0' }} />
 
-            <div style={{ height: 1, background: 'var(--color-border)', margin: '12px 0' }} />
-
+            {/* Key input */}
             <p className="settings-desc">
-              Use your own Gemini API key (overrides the project key, stored only on this device):
+              Use your own Gemini API key (recommended for higher limits — stored only in this browser):
             </p>
             <form onSubmit={handleSaveApiKey} style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <input
                 type="password"
-                placeholder={aiKeySource === 'user' ? 'Replace existing key…' : 'Paste your Gemini API key'}
+                placeholder={userKeySet ? 'Replace existing key…' : 'Paste your Gemini API key'}
                 value={aiKeyInput}
                 onChange={(e) => setAiKeyInput(e.target.value)}
                 autoComplete="off"
@@ -418,7 +461,7 @@ export default function Settings() {
               />
               <button type="submit" className="btn btn-primary">Save</button>
             </form>
-            {aiKeySource === 'user' && (
+            {userKeySet && (
               <button
                 type="button"
                 onClick={handleClearApiKey}
@@ -428,17 +471,37 @@ export default function Settings() {
                 Remove my key
               </button>
             )}
-            <p className="settings-desc" style={{ marginTop: 12, fontSize: '0.78rem' }}>
-              Get a free key at{' '}
-              <a
-                href="https://aistudio.google.com/app/apikey"
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: 'var(--color-accent)' }}
-              >
-                aistudio.google.com/app/apikey
-              </a>.
-            </p>
+
+            {/* Step-by-step guide */}
+            <details className="ai-guide">
+              <summary>How to get a free Gemini API key →</summary>
+              <ol className="ai-guide-list">
+                <li>
+                  Open{' '}
+                  <a
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    aistudio.google.com/app/apikey
+                  </a>{' '}
+                  and sign in with any Google account.
+                </li>
+                <li>
+                  Click <strong>Create API key</strong> (top-right). If asked, choose{' '}
+                  <strong>Create API key in new project</strong>.
+                </li>
+                <li>
+                  Copy the key — it starts with <code>AIzaSy…</code>
+                </li>
+                <li>
+                  Paste it in the field above and tap <strong>Save</strong>.
+                </li>
+              </ol>
+              <p className="ai-guide-note">
+                The free tier allows ~1,500 requests per day — far more than this app uses. Your key never leaves this device.
+              </p>
+            </details>
           </div>
         </div>
 
