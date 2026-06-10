@@ -59,6 +59,11 @@ Legend: **Effort** S (<½ day) · M (½–2 days) · L (2+ days / needs backend 
 
 ## Recently shipped (do not re-add)
 
+- AI recipes are user-initiated: Generate/Regenerate button replaces the
+  auto-fetch-on-pantry-change behavior (saves Gemini quota) (2026-06-10)
+- App icons: proper PNG apple-touch-icon (iOS ignores SVG ones), SVG+PNG
+  favicons, PNG manifest icons with maskable variant; branded "Pantry Snap"
+  tab title — installs cleanly via iOS "Add to Home Screen" (2026-06-10)
 - Front-end revamp: ambient glow background, gradient buttons/titles/logo, card depth,
   desktop two-column grids (Pantry/Recipes/Shopping/Dashboard) with wider max-width,
   iOS safe-area support, keyboard focus rings, prefers-reduced-motion (2026-06-10)

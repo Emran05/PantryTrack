@@ -373,3 +373,33 @@
     grid-column: 1 / -1;
   }
 }
+
+/* ---- Generate / Regenerate AI buttons ---- */
+.ai-generate-btn {
+  margin-bottom: var(--space-md);
+}
+
+.ai-regenerate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 6px 14px;
+  margin-bottom: var(--space-md);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.ai-regenerate-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.ai-regenerate-btn:active {
+  transform: scale(0.96);
+}

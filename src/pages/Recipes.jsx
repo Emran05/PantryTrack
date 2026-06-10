@@ -10,10 +10,6 @@ import { useToast } from '../components/ToastContext';
 import CookThisModal from '../components/CookThisModal';
 import './Recipes.css';
 
-// Debounce so a flurry of realtime updates (e.g. importing 10 receipt items)
-// doesn't fire 10 AI calls in a row.
-const AI_DEBOUNCE_MS = 1200;
-
 export default function Recipes() {
   const { activePantry } = usePantry();
   const [items, setItems] = useState([]);
@@ -29,7 +25,6 @@ export default function Recipes() {
   const { showToast } = useToast();
   const aiRequestId = useRef(0);
   const fetchSeqRef = useRef(0);
-  const aiDebounceRef = useRef(null);
 
   const fetchItems = useCallback(async () => {
     if (!activePantry) return;
@@ -56,34 +51,16 @@ export default function Recipes() {
   // Local recipe suggestions (instant)
   const localSuggestions = useMemo(() => getRecipeSuggestions(items), [items]);
 
-  // Run an AI fetch immediately (used by the retry button).
-  // Show the "fell back to free tier" toast only once per session — if the
-  // user's key is consistently bad, we don't want to nag them every refresh.
+  // AI generation is user-initiated only (the Generate button) — auto-firing
+  // on every pantry change burned through API quota for results nobody asked
+  // for. Show the "fell back to free tier" toast only once per session.
   const hasShownFallbackToastRef = useRef(false);
 
-  // Signature of the item set the last AI fetch ran against. Realtime events
-  // and pantry refreshes produce a new `items` array identity even when
-  // nothing changed — without this guard every refresh burned a rate-limit
-  // token and a Gemini call for identical results.
-  const lastAISignatureRef = useRef(null);
-
-  const itemsSignature = (list) =>
-    list
-      .map((i) => `${i.name}|${i.quantity}|${i.expirationDate || ''}`)
-      .sort()
-      .join('~');
-
-  const fetchAINow = useCallback((force = false) => {
+  const fetchAINow = useCallback(() => {
     if (items.length === 0) {
       setAiRecipes(null);
-      lastAISignatureRef.current = null;
       return;
     }
-
-    // Diet is part of the signature — switching diets should re-prompt the AI.
-    const signature = `${diet}::${itemsSignature(items)}`;
-    if (!force && signature === lastAISignatureRef.current) return;
-    lastAISignatureRef.current = signature;
 
     const requestId = ++aiRequestId.current;
     setAiLoading(true);
@@ -114,21 +91,6 @@ export default function Recipes() {
         if (aiRequestId.current === requestId) setAiLoading(false);
       });
   }, [items, diet, showToast]);
-
-  // Debounced trigger so rapid pantry changes don't fire back-to-back AI calls.
-  const fetchAI = useCallback(() => {
-    if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
-    aiDebounceRef.current = setTimeout(() => {
-      fetchAINow();
-    }, AI_DEBOUNCE_MS);
-  }, [fetchAINow]);
-
-  useEffect(() => {
-    fetchAI();
-    return () => {
-      if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
-    };
-  }, [fetchAI]);
 
   // Use AI recipes if available, otherwise local
   const suggestions = aiRecipes && aiRecipes.length > 0 ? aiRecipes : localSuggestions;
@@ -220,8 +182,26 @@ export default function Recipes() {
         </p>
       </div>
 
+      {/* Generate / Regenerate — AI runs only when the user asks (saves quota) */}
+      {items.length > 0 && !aiLoading && (
+        isUsingAI ? (
+          <button className="ai-regenerate-btn animate-fade-in" onClick={fetchAINow}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 4 23 10 17 10" />
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+            </svg>
+            Regenerate AI recipes
+          </button>
+        ) : (
+          <button className="btn btn-primary btn-full ai-generate-btn animate-fade-in" onClick={fetchAINow}>
+            <span aria-hidden="true">✨</span>
+            Generate AI recipes from my pantry
+          </button>
+        )
+      )}
+
       {/* AI Loading Indicator */}
-      {aiLoading && !isUsingAI && (
+      {aiLoading && (
         <div className="ai-loading-banner animate-fade-in">
           <div className="ai-loading-pulse" />
           <span>Generating personalized recipes with AI...</span>
@@ -251,7 +231,7 @@ export default function Recipes() {
             ? `Try again in ${aiError.retryDelaySeconds}s`
             : 'Try again in a moment';
           return (
-            <button className="ai-retry-banner animate-fade-in" onClick={() => fetchAINow(true)}>
+            <button className="ai-retry-banner animate-fade-in" onClick={fetchAINow}>
               <span>Google throttled the request. {wait}, or add your own key in Settings for more headroom.</span>
             </button>
           );
@@ -264,7 +244,7 @@ export default function Recipes() {
           );
         }
         return (
-          <button className="ai-retry-banner animate-fade-in" onClick={() => fetchAINow(true)}>
+          <button className="ai-retry-banner animate-fade-in" onClick={fetchAINow}>
             <span>AI suggestions unavailable — showing local recipes. Tap to retry.</span>
           </button>
         );
