@@ -2,10 +2,12 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getPantryItems, addShoppingItem } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
-import { getRecipeSuggestions, getAIRecipeSuggestions } from '../lib/recipes';
+import { getRecipeSuggestions, getAIRecipeSuggestions, filterRecipesByDiet, recipeKey } from '../lib/recipes';
 import { getExpirationStatus, getDaysUntilExpiration } from '../lib/helpers';
+import { getDiet, setDiet, DIETS, getFavoriteRecipeIds, toggleFavoriteRecipe } from '../lib/preferences';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useToast } from '../components/ToastContext';
+import CookThisModal from '../components/CookThisModal';
 import './Recipes.css';
 
 // Debounce so a flurry of realtime updates (e.g. importing 10 receipt items)
@@ -21,6 +23,9 @@ export default function Recipes() {
   const [aiLoading, setAiLoading] = useState(false);
   // aiError is now an object: null | { code, message, resetLabel? }
   const [aiError, setAiError] = useState(null);
+  const [diet, setDietState] = useState(getDiet());
+  const [favTick, setFavTick] = useState(0);
+  const [cookRecipe, setCookRecipe] = useState(null);
   const { showToast } = useToast();
   const aiRequestId = useRef(0);
   const fetchSeqRef = useRef(0);
@@ -75,7 +80,8 @@ export default function Recipes() {
       return;
     }
 
-    const signature = itemsSignature(items);
+    // Diet is part of the signature — switching diets should re-prompt the AI.
+    const signature = `${diet}::${itemsSignature(items)}`;
     if (!force && signature === lastAISignatureRef.current) return;
     lastAISignatureRef.current = signature;
 
@@ -83,7 +89,7 @@ export default function Recipes() {
     setAiLoading(true);
     setAiError(null);
 
-    getAIRecipeSuggestions(items)
+    getAIRecipeSuggestions(items, { diet })
       .then((result) => {
         if (aiRequestId.current !== requestId) return;
         setAiRecipes(result.recipes);
@@ -107,7 +113,7 @@ export default function Recipes() {
       .finally(() => {
         if (aiRequestId.current === requestId) setAiLoading(false);
       });
-  }, [items, showToast]);
+  }, [items, diet, showToast]);
 
   // Debounced trigger so rapid pantry changes don't fire back-to-back AI calls.
   const fetchAI = useCallback(() => {
@@ -127,6 +133,32 @@ export default function Recipes() {
   // Use AI recipes if available, otherwise local
   const suggestions = aiRecipes && aiRecipes.length > 0 ? aiRecipes : localSuggestions;
   const isUsingAI = aiRecipes && aiRecipes.length > 0;
+
+  // Diet filter applied locally too — the AI prompt asks for it, but the model
+  // occasionally cheats, and local suggestions don't go through the AI at all.
+  const dietFiltered = useMemo(() => filterRecipesByDiet(suggestions, diet), [suggestions, diet]);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const favoriteKeys = useMemo(() => new Set(getFavoriteRecipeIds()), [favTick]);
+  const favorites = dietFiltered.filter((r) => favoriteKeys.has(recipeKey(r)));
+  const others = dietFiltered.filter((r) => !favoriteKeys.has(recipeKey(r)));
+
+  const handleDietChange = (id) => {
+    setDiet(id);          // persist
+    setDietState(id);     // re-render + re-arm AI fetch via signature
+  };
+
+  const handleToggleFavorite = (e, recipe) => {
+    e.stopPropagation();
+    const nowFav = toggleFavoriteRecipe(recipeKey(recipe));
+    setFavTick((t) => t + 1);
+    showToast(nowFav ? `"${recipe.title}" saved to favorites` : `"${recipe.title}" removed from favorites`);
+  };
+
+  const handleCookThis = (e, recipe) => {
+    e.stopPropagation();
+    setCookRecipe(recipe);
+  };
 
   // Items expiring soonest
   const expiringItems = useMemo(() => {
@@ -261,105 +293,34 @@ export default function Recipes() {
         </div>
       )}
 
+      {/* Dietary filter chips */}
+      <div className="diet-chips animate-fade-in" role="radiogroup" aria-label="Dietary filter">
+        {DIETS.map((d) => (
+          <button
+            key={d.id}
+            className={`diet-chip ${diet === d.id ? 'active' : ''}`}
+            onClick={() => handleDietChange(d.id)}
+            role="radio"
+            aria-checked={diet === d.id}
+          >
+            {d.label}
+          </button>
+        ))}
+      </div>
+
       {/* Recipe Cards */}
       <div className="recipes-list">
-        {suggestions.length > 0 ? (
-          suggestions.map((recipe) => {
-            const isExpanded = expandedId === recipe.id;
-            const matchPct = Math.round((recipe.matchRatio || 0) * 100);
-            return (
-              <div
-                key={recipe.id}
-                className={`recipe-card card animate-fade-in ${isExpanded ? 'expanded' : ''}`}
-                onClick={() => toggleExpand(recipe.id)}
-              >
-                <div className="recipe-card-top">
-                  <div className="recipe-card-info">
-                    <h3 className="recipe-card-title">
-                      {recipe.isAI && <span style={{ marginRight: '6px', fontSize: '0.9em' }}>✨</span>}
-                      {recipe.title}
-                    </h3>
-                    <div className="recipe-card-meta">
-                      <span className="recipe-meta-item">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="10" />
-                          <polyline points="12 6 12 12 16 14" />
-                        </svg>
-                        {recipe.time}
-                      </span>
-                      <span className="recipe-meta-item">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                          <circle cx="9" cy="7" r="4" />
-                        </svg>
-                        {recipe.servings}
-                      </span>
-                      <span className="recipe-meta-item recipe-difficulty">{recipe.difficulty}</span>
-                    </div>
-                  </div>
-                  <div className="recipe-match-ring">
-                    <svg viewBox="0 0 36 36" className="recipe-match-svg">
-                      <path
-                        className="recipe-match-bg"
-                        d="M18 2.0845a15.9155 15.9155 0 0 1 0 31.831a15.9155 15.9155 0 0 1 0-31.831"
-                        fill="none"
-                        strokeWidth="3"
-                      />
-                      <path
-                        className="recipe-match-fill"
-                        d="M18 2.0845a15.9155 15.9155 0 0 1 0 31.831a15.9155 15.9155 0 0 1 0-31.831"
-                        fill="none"
-                        strokeWidth="3"
-                        strokeDasharray={`${matchPct}, 100`}
-                      />
-                    </svg>
-                    <span className="recipe-match-text">{matchPct}%</span>
-                  </div>
-                </div>
-
-                {/* Ingredient Tags */}
-                <div className="recipe-ingredients">
-                  {(recipe.matched || []).map((ing) => (
-                    <span key={ing} className="recipe-ing-tag have">{ing}</span>
-                  ))}
-                  {(recipe.missing || []).map((ing) => (
-                    <span key={ing} className="recipe-ing-tag missing">{ing}</span>
-                  ))}
-                </div>
-
-                {/* Add Missing to Shopping List */}
-                {recipe.missing && recipe.missing.length > 0 && (
-                  <button
-                    className="btn btn-secondary recipe-add-missing"
-                    onClick={(e) => handleAddMissing(e, recipe)}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="9" cy="21" r="1" />
-                      <circle cx="20" cy="21" r="1" />
-                      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-                    </svg>
-                    Add {recipe.missing.length} missing to list
-                  </button>
-                )}
-
-                {/* Expanded: Instructions */}
-                {isExpanded && (
-                  <div className="recipe-instructions animate-fade-in">
-                    <h4>Instructions</h4>
-                    <ol>
-                      {(recipe.instructions || []).map((step, i) => (
-                        <li key={i}>{step}</li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
-
-                <div className="recipe-card-expand-hint">
-                  {isExpanded ? 'Tap to collapse' : 'Tap for instructions'}
-                </div>
-              </div>
-            );
-          })
+        {dietFiltered.length > 0 ? (
+          <>
+            {favorites.length > 0 && (
+              <>
+                <h3 className="recipes-section-title">Favorites</h3>
+                {favorites.map((recipe) => renderRecipeCard(recipe))}
+                <h3 className="recipes-section-title">Suggestions</h3>
+              </>
+            )}
+            {others.map((recipe) => renderRecipeCard(recipe))}
+          </>
         ) : (
           <div className="empty-state animate-fade-in">
             <div className="empty-state-icon">
@@ -368,11 +329,146 @@ export default function Recipes() {
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
               </svg>
             </div>
-            <h3>No recipe matches</h3>
-            <p>Add items to your pantry to get personalized recipe suggestions</p>
+            <h3>{suggestions.length > 0 ? 'No recipes match this diet' : 'No recipe matches'}</h3>
+            <p>
+              {suggestions.length > 0
+                ? 'Try a different dietary filter, or add more items to your pantry'
+                : 'Add items to your pantry to get personalized recipe suggestions'}
+            </p>
           </div>
         )}
       </div>
+
+      {cookRecipe && (
+        <CookThisModal
+          recipe={cookRecipe}
+          items={items}
+          pantryId={activePantry?.id}
+          onClose={() => setCookRecipe(null)}
+          onDone={fetchItems}
+        />
+      )}
     </div>
   );
+
+  function renderRecipeCard(recipe) {
+    const isExpanded = expandedId === recipe.id;
+    const matchPct = Math.round((recipe.matchRatio || 0) * 100);
+    const isFav = favoriteKeys.has(recipeKey(recipe));
+    return (
+      <div
+        key={recipe.id}
+        className={`recipe-card card animate-fade-in ${isExpanded ? 'expanded' : ''}`}
+        onClick={() => toggleExpand(recipe.id)}
+      >
+        <div className="recipe-card-top">
+          <div className="recipe-card-info">
+            <h3 className="recipe-card-title">
+              {recipe.isAI && <span style={{ marginRight: '6px', fontSize: '0.9em' }}>✨</span>}
+              {recipe.title}
+            </h3>
+            <div className="recipe-card-meta">
+              <span className="recipe-meta-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                {recipe.time}
+              </span>
+              <span className="recipe-meta-item">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                </svg>
+                {recipe.servings}
+              </span>
+              <span className="recipe-meta-item recipe-difficulty">{recipe.difficulty}</span>
+            </div>
+          </div>
+          <button
+            className={`recipe-fav-btn ${isFav ? 'active' : ''}`}
+            onClick={(e) => handleToggleFavorite(e, recipe)}
+            aria-label={isFav ? `Remove ${recipe.title} from favorites` : `Save ${recipe.title} to favorites`}
+            aria-pressed={isFav}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill={isFav ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            </svg>
+          </button>
+          <div className="recipe-match-ring">
+            <svg viewBox="0 0 36 36" className="recipe-match-svg">
+              <path
+                className="recipe-match-bg"
+                d="M18 2.0845a15.9155 15.9155 0 0 1 0 31.831a15.9155 15.9155 0 0 1 0-31.831"
+                fill="none"
+                strokeWidth="3"
+              />
+              <path
+                className="recipe-match-fill"
+                d="M18 2.0845a15.9155 15.9155 0 0 1 0 31.831a15.9155 15.9155 0 0 1 0-31.831"
+                fill="none"
+                strokeWidth="3"
+                strokeDasharray={`${matchPct}, 100`}
+              />
+            </svg>
+            <span className="recipe-match-text">{matchPct}%</span>
+          </div>
+        </div>
+
+        {/* Ingredient Tags */}
+        <div className="recipe-ingredients">
+          {(recipe.matched || []).map((ing) => (
+            <span key={ing} className="recipe-ing-tag have">{ing}</span>
+          ))}
+          {(recipe.missing || []).map((ing) => (
+            <span key={ing} className="recipe-ing-tag missing">{ing}</span>
+          ))}
+        </div>
+
+        {/* Card actions */}
+        <div className="recipe-card-actions">
+          {recipe.matched && recipe.matched.length > 0 && (
+            <button
+              className="btn btn-primary recipe-cook-btn"
+              onClick={(e) => handleCookThis(e, recipe)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              I cooked this
+            </button>
+          )}
+          {recipe.missing && recipe.missing.length > 0 && (
+            <button
+              className="btn btn-secondary recipe-add-missing"
+              onClick={(e) => handleAddMissing(e, recipe)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="9" cy="21" r="1" />
+                <circle cx="20" cy="21" r="1" />
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+              </svg>
+              Add {recipe.missing.length} missing to list
+            </button>
+          )}
+        </div>
+
+        {/* Expanded: Instructions */}
+        {isExpanded && (
+          <div className="recipe-instructions animate-fade-in">
+            <h4>Instructions</h4>
+            <ol>
+              {(recipe.instructions || []).map((step, i) => (
+                <li key={i}>{step}</li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        <div className="recipe-card-expand-hint">
+          {isExpanded ? 'Tap to collapse' : 'Tap for instructions'}
+        </div>
+      </div>
+    );
+  }
 }

@@ -156,10 +156,44 @@ function normalize(str) {
   return str.toLowerCase().replace(/[^a-z ]/g, '').trim();
 }
 
-function nameMatchesIngredient(itemName, ingredient) {
+// Exported for CookThisModal — it resolves recipe.matched ingredient names
+// back to concrete pantry items.
+export function nameMatchesIngredient(itemName, ingredient) {
   const normalizedItem = normalize(itemName);
   const normalizedIngredient = normalize(ingredient);
   return normalizedItem.includes(normalizedIngredient) || normalizedIngredient.includes(normalizedItem);
+}
+
+// Stable identity for favorites: AI recipe IDs aren't guaranteed stable across
+// calls, so favorite by title slug. Local recipes get the same treatment so a
+// favorited local recipe survives the switch to AI suggestions of the same dish.
+export function recipeKey(recipe) {
+  return (recipe.title || recipe.id || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+// Ingredient keywords that disqualify a recipe per diet. Substring match on
+// lowercase ingredient names — defense in depth on top of the diet line we
+// pass to Gemini (the model occasionally cheats).
+const DIET_BLOCK = {
+  vegetarian: ['ground beef', 'chicken', 'beef', 'pork', 'bacon', 'turkey', 'fish', 'salmon', 'tuna', 'shrimp', 'meat', 'ham', 'sausage', 'pepperoni'],
+  vegan: ['ground beef', 'chicken', 'beef', 'pork', 'bacon', 'turkey', 'fish', 'salmon', 'tuna', 'shrimp', 'meat', 'ham', 'sausage', 'pepperoni', 'milk', 'cheese', 'cheddar', 'mozzarella', 'parmesan', 'yogurt', 'butter', 'cream', 'egg', 'honey'],
+  glutenfree: ['bread', 'pasta', 'flour', 'tortillas', 'tortilla', 'pita', 'cereal', 'noodles', 'couscous', 'crackers', 'soy sauce'],
+  dairyfree: ['milk', 'cheese', 'cheddar', 'mozzarella', 'parmesan', 'yogurt', 'butter', 'cream', 'sour cream'],
+};
+
+export function filterRecipesByDiet(recipes, diet) {
+  if (!diet || diet === 'all') return recipes;
+  const blocked = DIET_BLOCK[diet];
+  if (!blocked || blocked.length === 0) return recipes;
+  return recipes.filter((r) =>
+    !(r.ingredients || []).some((ing) => {
+      const lower = String(ing).toLowerCase();
+      return blocked.some((b) => lower.includes(b));
+    })
+  );
 }
 
 /**

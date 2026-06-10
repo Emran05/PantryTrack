@@ -12,6 +12,104 @@ import { useToast } from '../components/ToastContext';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import './ShoppingList.css';
 
+// Web Speech API — Chrome/Safari/Edge. Null on Firefox; the mic button hides.
+const SpeechRecognitionImpl =
+  typeof window !== 'undefined'
+    ? window.SpeechRecognition || window.webkitSpeechRecognition
+    : null;
+
+const NUMBER_WORDS = {
+  a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5,
+  six: 6, seven: 7, eight: 8, nine: 9, ten: 10, half: 0.5,
+};
+
+const UNIT_MAP = {
+  piece: 'pcs', pieces: 'pcs', pcs: 'pcs',
+  pound: 'lbs', pounds: 'lbs', lb: 'lbs', lbs: 'lbs',
+  ounce: 'oz', ounces: 'oz', oz: 'oz',
+  kilogram: 'kg', kilograms: 'kg', kg: 'kg',
+  gram: 'g', grams: 'g', g: 'g',
+  liter: 'L', liters: 'L', l: 'L',
+  milliliter: 'mL', milliliters: 'mL', ml: 'mL',
+  cup: 'cups', cups: 'cups',
+  bag: 'bags', bags: 'bags',
+  box: 'boxes', boxes: 'boxes',
+  can: 'cans', cans: 'cans',
+  bottle: 'bottles', bottles: 'bottles',
+};
+
+// "add two pounds of ground beef" → { quantity: 2, unit: 'lbs', name: 'ground beef' }
+export function parseVoiceTranscript(text) {
+  let t = text.trim().toLowerCase().replace(/^(add|put|get|buy)\s+/, '');
+
+  let quantity = 1;
+  const numMatch = t.match(/^(\d+(?:\.\d+)?)\s+/);
+  const wordMatch = numMatch ? null : t.match(/^(a|an|one|two|three|four|five|six|seven|eight|nine|ten|half)\s+/);
+  if (numMatch) {
+    quantity = parseFloat(numMatch[1]);
+    t = t.slice(numMatch[0].length);
+  } else if (wordMatch) {
+    quantity = NUMBER_WORDS[wordMatch[1]];
+    t = t.slice(wordMatch[0].length);
+  }
+
+  let unit = 'pcs';
+  const unitMatch = t.match(/^([a-z]+)\s+(?:of\s+)?(.+)$/);
+  if (unitMatch && UNIT_MAP[unitMatch[1]]) {
+    unit = UNIT_MAP[unitMatch[1]];
+    t = unitMatch[2];
+  }
+
+  return { quantity, unit, name: t.trim() };
+}
+
+function VoiceMicButton({ onTranscript, onError }) {
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef(null);
+
+  // Stop any in-flight recognition if the page unmounts mid-listen.
+  useEffect(() => () => recognitionRef.current?.abort?.(), []);
+
+  if (!SpeechRecognitionImpl) return null;
+
+  const start = () => {
+    const r = new SpeechRecognitionImpl();
+    r.lang = 'en-US';
+    r.continuous = false;
+    r.interimResults = false;
+    r.onresult = (e) => onTranscript(e.results[0][0].transcript);
+    r.onend = () => setListening(false);
+    r.onerror = (e) => {
+      setListening(false);
+      if (e.error !== 'aborted' && e.error !== 'no-speech') onError(e.error);
+    };
+    recognitionRef.current = r;
+    r.start();
+    setListening(true);
+  };
+
+  const stop = () => {
+    recognitionRef.current?.stop();
+    setListening(false);
+  };
+
+  return (
+    <button
+      type="button"
+      className={`voice-mic ${listening ? 'listening' : ''}`}
+      onClick={listening ? stop : start}
+      aria-label={listening ? 'Stop listening' : 'Add item by voice'}
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+        <line x1="12" y1="19" x2="12" y2="23" />
+        <line x1="8" y1="23" x2="16" y2="23" />
+      </svg>
+    </button>
+  );
+}
+
 export default function ShoppingList() {
   const { activePantry } = usePantry();
   const [items, setItems] = useState([]);
@@ -106,6 +204,27 @@ export default function ShoppingList() {
     }
   };
 
+  const handleVoiceTranscript = (transcript) => {
+    const parsed = parseVoiceTranscript(transcript);
+    if (!parsed.name) {
+      showToast(`Heard "${transcript}" — couldn't find an item name`, 'info');
+      return;
+    }
+    // Populate the form instead of auto-submitting so the user can adjust.
+    setName(parsed.name);
+    setQuantity(parsed.quantity);
+    setUnit(parsed.unit);
+    showToast(`Heard: ${parsed.quantity} ${parsed.unit} ${parsed.name} — tap Add to confirm`, 'info');
+  };
+
+  const handleVoiceError = (errCode) => {
+    if (errCode === 'not-allowed' || errCode === 'service-not-allowed') {
+      showToast('Microphone access denied — check browser permissions', 'error');
+    } else {
+      showToast('Voice input failed — try again', 'error');
+    }
+  };
+
   const unchecked = items.filter((i) => !i.isChecked);
   const checked = items.filter((i) => i.isChecked);
 
@@ -117,13 +236,17 @@ export default function ShoppingList() {
       </div>
 
       <form className="shopping-add-form animate-fade-in" onSubmit={handleAdd}>
-        <input
-          type="text"
-          className="shopping-add-input"
-          placeholder="Add an item..."
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+        <div className="shopping-name-row" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <input
+            type="text"
+            className="shopping-add-input"
+            placeholder="Add an item..."
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            style={{ flex: 1, minWidth: 0 }}
+          />
+          <VoiceMicButton onTranscript={handleVoiceTranscript} onError={handleVoiceError} />
+        </div>
         <div className="shopping-add-row">
           <input
             type="number"

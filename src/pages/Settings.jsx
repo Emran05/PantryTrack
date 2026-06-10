@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usePantry } from '../contexts/PantryContext';
-import { createPantry, joinPantryById, getAreas, createArea, deleteArea, getProfile, updateProfile } from '../lib/supabaseStorage';
+import { createPantry, joinPantryById, getAreas, createArea, deleteArea, getProfile, updateProfile, getPantryItems } from '../lib/supabaseStorage';
 import { useToast } from '../components/ToastContext';
 import { resetTourFlag } from '../components/Tour';
 import ThemePicker from '../components/ThemePicker';
@@ -205,6 +205,45 @@ export default function Settings() {
   const handleRestartTour = () => {
     resetTourFlag();
     window.dispatchEvent(new CustomEvent('pantry-restart-tour'));
+  };
+
+  const handleExportCSV = async () => {
+    if (!activePantry) return;
+    setLoading(true);
+    try {
+      const items = await getPantryItems(activePantry.id);
+      if (items.length === 0) {
+        showToast('Nothing to export — pantry is empty', 'info');
+        return;
+      }
+      const headers = ['name', 'category', 'quantity', 'unit', 'expiration_date', 'area', 'notes', 'created_at'];
+      const escape = (v) => {
+        if (v == null) return '';
+        const s = String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const rows = items.map((it) =>
+        [it.name, it.category, it.quantity, it.unit, it.expirationDate || '', it.areaName || '', it.notes || '', it.createdAt || '']
+          .map(escape)
+          .join(',')
+      );
+      const csv = [headers.join(','), ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${activePantry.name.replace(/[^\w]/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast(`Exported ${items.length} item${items.length !== 1 ? 's' : ''}`);
+    } catch (err) {
+      console.error('CSV export failed:', err);
+      showToast('Export failed', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -504,6 +543,23 @@ export default function Settings() {
             </details>
           </div>
         </div>
+
+        {activePantry && (
+          <div className="settings-section">
+            <h3 className="settings-section-title">Data</h3>
+            <div className="settings-card card">
+              <p className="settings-desc">Download everything in {activePantry.name} as a spreadsheet-friendly CSV file.</p>
+              <button className="btn btn-secondary btn-full" onClick={handleExportCSV} disabled={loading} style={{ marginTop: '12px' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Export Pantry to CSV
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="settings-section">
           <h3 className="settings-section-title">Help</h3>

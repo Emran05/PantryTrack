@@ -78,7 +78,30 @@ const STEPS = [
       </svg>
     ),
     title: 'Recipe Suggestions',
-    description: 'Get personalized recipes based on what\u2019s in your pantry. Our AI prioritizes items expiring soon so nothing goes to waste. Missing an ingredient? Add it to your list in one tap.',
+    description: 'Get personalized recipes based on what\u2019s in your pantry. Filter by diet, heart your favorites, and when you make one, tap "I cooked this" \u2014 your pantry updates automatically.',
+  },
+  {
+    id: 'consume',
+    illustrationClass: 'tour-illustration-pantry',
+    icon: (
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 12h2l3 9 4-18 3 9h6" />
+      </svg>
+    ),
+    title: 'Track What You Use',
+    description: 'Swipe left on any pantry item and tap "Use" \u2014 log whether it was cooked, wasted, or donated. This powers your real waste-free streak and savings on the dashboard, and we\u2019ll offer to restock items you finish.',
+  },
+  {
+    id: 'pin',
+    illustrationClass: 'tour-illustration-add',
+    icon: (
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 17v5" />
+        <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+      </svg>
+    ),
+    title: 'Pin Your Staples',
+    description: 'Tap the pin on items you always want visible \u2014 milk, eggs, coffee \u2014 and they float to the top of your pantry. You can also sort by expiration date so nothing sneaks past you.',
   },
   {
     id: 'dashboard',

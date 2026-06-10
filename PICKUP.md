@@ -2,10 +2,11 @@
 
 Last updated: 2026-06-10
 
-> **Status update (2026-06-10):** Items **1 (pin sort)**, **9 (restock on +/-)**,
-> and **11 (honest dashboard via consumption log)** are now DONE — see
-> POST_ISSUES.md for details. The remaining items (2–8, 10) have moved to
-> **FEATURE_POOL.md**, which is now the canonical future-features list.
+> **Status update (2026-06-10):** Items **1–7** and **9–11** are now DONE
+> (pin sort, cook-this modal, favorites, dietary filter, system theme, CSV
+> export, voice add, restock on +/-, tour update, honest dashboard). Only
+> **8 (Venmo bill split)** remains — tracked in **FEATURE_POOL.md**, which is
+> now the canonical future-features list. See POST_ISSUES.md for fix details.
 
 This doc captures what's already wired and what's still left to build for the
 10-feature plan in `CHANGES_AND_FEATURES.md`. Read top to bottom — order matters

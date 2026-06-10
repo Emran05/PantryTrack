@@ -14,22 +14,22 @@ Legend: **Effort** S (<½ day) · M (½–2 days) · L (2+ days / needs backend 
 
 | # | Feature | Effort | Why it matters |
 |---|---------|--------|----------------|
-| 1 | **"I cooked this" modal** (PICKUP 2) | M | Closes the loop between recipes and inventory: confirm a recipe, decrement matched pantry items, log consumption events. Show which items will be decremented and let the user deselect — `nameMatchesIngredient` is fuzzy ("almond milk" matches "milk"). Needs `nameMatchesIngredient` exported from `lib/recipes.js`. |
-| 2 | **Dietary filter** (PICKUP 4) | S | Chip row on Recipes (All / Vegetarian / Vegan / Gluten-free / Dairy-free). `preferences.js` already has `getDiet`/`setDiet`/`DIETS`; `getAIRecipeSuggestions` already forwards `diet` to the prompt. Add local `filterRecipesByDiet` as defense-in-depth. |
-| 3 | **Recipe favorites** (PICKUP 3) | S | Heart button on recipe cards, Favorites section on top. `toggleFavoriteRecipe` already exists in `preferences.js`. Watch out: AI recipe IDs need to be stable — fall back to title slug. |
+| 1 | ~~**"I cooked this" modal**~~ | M | ✅ SHIPPED 2026-06-10 — CookThisModal with per-item deselect + qty steppers. |
+| 2 | ~~**Dietary filter**~~ | S | ✅ SHIPPED 2026-06-10 — chip row, AI prompt + local `filterRecipesByDiet` defense-in-depth. |
+| 3 | ~~**Recipe favorites**~~ | S | ✅ SHIPPED 2026-06-10 — heart button, Favorites section, title-slug stable keys. |
 | 4 | **Expiry push notifications** | L | The single biggest waste-reduction lever: "Your milk expires tomorrow." Needs a server-side scheduled function (Supabase cron + web push), so blocked on backend access. The PWA shell + service worker already exist. |
-| 5 | **Tour refresh** (PICKUP 10) | S | Tour doesn't mention the Use/consume flow or pinning — the two newest core interactions. Add 1–2 steps after `recipes`. Do this whenever feature work lands. |
+| 5 | ~~**Tour refresh**~~ | S | ✅ SHIPPED 2026-06-10 — added "Track What You Use" and "Pin Your Staples" steps. |
 
 ## Tier 2 — Strong quality-of-life wins
 
 | # | Feature | Effort | Why it matters |
 |---|---------|--------|----------------|
-| 6 | **System theme** (PICKUP 5) | S | `prefers-color-scheme`-driven theme that maps dark→midnight, light→arctic, follows OS changes live. Sketch in PICKUP.md including the media-query listener lifecycle. |
-| 7 | **CSV export** (PICKUP 6) | S | "Data" section in Settings; full pantry → CSV download. Code sketch ready in PICKUP.md. Pairs naturally with a future CSV *import*. |
-| 8 | **Voice add on Shopping List** (PICKUP 7) | M | Mic button using the Web Speech API ("two pounds ground beef" → qty/unit/name). Hide when the API is unavailable (Firefox). Populate the form, don't auto-submit. |
+| 6 | ~~**System theme**~~ | S | ✅ SHIPPED 2026-06-10 — follows `prefers-color-scheme` live (midnight/arctic). |
+| 7 | ~~**CSV export**~~ | S | ✅ SHIPPED 2026-06-10 — Data section in Settings. CSV *import* remains open. |
+| 8 | ~~**Voice add on Shopping List**~~ | M | ✅ SHIPPED 2026-06-10 — Web Speech API mic, parses qty/unit/name, populates form. |
 | 9 | **Venmo bill split** (PICKUP 8) | M | The Venmo handle field already exists on profiles and `getMembersWithProfiles` is built. Modal: total → even split across selected members → `venmo://paycharge` deep links (web fallback on desktop) + copy-summary. |
 | 10 | **Duplicate merge instead of confirm** | M | When adding a duplicate, today's UX is a confirm dialog ("Add anyway?"). Better: offer "Merge (+2 to existing)" / "Keep both" / "Cancel". The storage layer already returns `err.existing` with id/qty — the UI just doesn't use it. |
-| 11 | **Sort options on Pantry** | S | Sort by expiration date (soonest first), name, recently added. Currently fixed at created-at desc within areas. Expiring-first is the natural default for a waste-reduction app. |
+| 11 | ~~**Sort options on Pantry**~~ | S | ✅ SHIPPED 2026-06-10 — Recently added / Expiring first / Name A–Z, persisted. |
 
 ## Tier 3 — Backend / infrastructure (needed before "real product")
 
@@ -59,6 +59,14 @@ Legend: **Effort** S (<½ day) · M (½–2 days) · L (2+ days / needs backend 
 
 ## Recently shipped (do not re-add)
 
+- "I cooked this" modal — confirm matched items, decrement, log consumption (2026-06-10)
+- Dietary filter chips on Recipes — AI prompt + local enforcement (2026-06-10)
+- Recipe favorites with Favorites section (2026-06-10)
+- System theme following OS dark/light (2026-06-10)
+- CSV export from Settings → Data (2026-06-10)
+- Voice add on Shopping List via Web Speech API (2026-06-10)
+- Pantry sort options: recently added / expiring first / name (2026-06-10)
+- Tour steps for consume tracking + pinning (2026-06-10)
 - Pin-to-top sorting in Pantry (2026-06-10)
 - Honest dashboard streak/savings from the consumption log + Activity feed (2026-06-10)
 - Restock nudge on +/- quantity decrement (2026-06-10)

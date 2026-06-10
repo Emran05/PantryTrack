@@ -15,6 +15,14 @@ export default function Pantry() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
+  // 'recent' (created desc, fetch order) | 'expiring' (soonest first) | 'name'
+  const [sortBy, setSortBy] = useState(() => {
+    try {
+      return localStorage.getItem('pantry_sort') || 'recent';
+    } catch {
+      return 'recent';
+    }
+  });
   // Bumped when a pin toggles so the pinned-first sort recomputes.
   const [pinTick, setPinTick] = useState(0);
   const { showToast } = useToast();
@@ -68,6 +76,28 @@ export default function Pantry() {
     }
   }, [items, refresh, showToast]);
 
+  const handleSortChange = (value) => {
+    setSortBy(value);
+    try {
+      localStorage.setItem('pantry_sort', value);
+    } catch {
+      // localStorage unavailable — sort still works for this session
+    }
+  };
+
+  // Secondary sort within each area (pinned-first stays the primary order).
+  const compareItems = (a, b) => {
+    if (sortBy === 'name') return a.name.localeCompare(b.name);
+    if (sortBy === 'expiring') {
+      // Items without an expiration date sink to the bottom.
+      if (!a.expirationDate && !b.expirationDate) return 0;
+      if (!a.expirationDate) return 1;
+      if (!b.expirationDate) return -1;
+      return new Date(a.expirationDate) - new Date(b.expirationDate);
+    }
+    return 0; // 'recent' — preserve fetch order (created_at desc)
+  };
+
   const filtered = items.filter((item) => {
     const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
@@ -117,6 +147,24 @@ export default function Pantry() {
         ))}
       </div>
 
+      {items.length > 1 && (
+        <div className="pantry-sort-row animate-fade-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', margin: '4px 0' }}>
+          <label htmlFor="pantry-sort" style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
+            Sort
+          </label>
+          <select
+            id="pantry-sort"
+            value={sortBy}
+            onChange={(e) => handleSortChange(e.target.value)}
+            style={{ padding: '4px 8px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-card)', color: 'var(--color-text-primary)', fontSize: '0.8rem' }}
+          >
+            <option value="recent">Recently added</option>
+            <option value="expiring">Expiring first</option>
+            <option value="name">Name A–Z</option>
+          </select>
+        </div>
+      )}
+
       <div className="pantry-list">
         {loading ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-secondary)' }}>Loading pantry items...</div>
@@ -129,8 +177,8 @@ export default function Pantry() {
               const sorted = [...areaItems].sort((a, b) => {
                 const ap = pinnedSet.has(a.id);
                 const bp = pinnedSet.has(b.id);
-                if (ap === bp) return 0;
-                return ap ? -1 : 1;
+                if (ap !== bp) return ap ? -1 : 1;
+                return compareItems(a, b);
               });
               return (
                 <div key={area} className="pantry-area-group">

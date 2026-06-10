@@ -62,6 +62,15 @@ const themes = {
     },
   },
 
+  // Follows the OS prefers-color-scheme: midnight when dark, arctic when light.
+  // vars are resolved at apply time — see applyTheme.
+  system: {
+    id: 'system',
+    label: 'System',
+    preview: ['#0f172a', '#f0f4f8', '#22c55e'],
+    vars: {},
+  },
+
   sunset: {
     id: 'sunset',
     label: 'Sunset',
@@ -103,10 +112,9 @@ export function saveTheme(themeId) {
   localStorage.setItem(THEME_KEY, themeId);
 }
 
-export function applyTheme(themeId) {
-  const theme = themes[themeId];
-  if (!theme) return;
-
+// Write a theme's CSS vars to :root. Internal — does not persist or manage
+// the system-theme media listener.
+function applyVars(theme) {
   const root = document.documentElement;
 
   // First, remove any previously applied theme vars
@@ -127,6 +135,40 @@ export function applyTheme(themeId) {
   if (meta) {
     const bgColor = theme.vars['--color-bg-primary'] || '#0f172a';
     meta.setAttribute('content', bgColor);
+  }
+}
+
+// System theme follows the OS. Keep exactly one media-query listener alive;
+// applyTheme is called from App mount AND ThemePicker clicks, so each call
+// must tear down the previous listener before (maybe) installing a new one.
+let systemMediaQuery = null;
+let systemMediaListener = null;
+
+function clearSystemListener() {
+  if (systemMediaQuery && systemMediaListener) {
+    systemMediaQuery.removeEventListener('change', systemMediaListener);
+  }
+  systemMediaQuery = null;
+  systemMediaListener = null;
+}
+
+export function applyTheme(themeId) {
+  const theme = themes[themeId];
+  if (!theme) return;
+
+  clearSystemListener();
+
+  if (themeId === 'system') {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const applyFromOS = () => {
+      applyVars(mq.matches ? themes.midnight : themes.arctic);
+    };
+    applyFromOS();
+    systemMediaQuery = mq;
+    systemMediaListener = applyFromOS;
+    mq.addEventListener('change', applyFromOS);
+  } else {
+    applyVars(theme);
   }
 
   saveTheme(themeId);
