@@ -8,6 +8,7 @@ import { TransitionProvider } from './contexts/TransitionContext';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import Tour, { isTourCompleted } from './components/Tour';
+import WhatsNew, { shouldShowWhatsNew, markWhatsNewSeen } from './components/WhatsNew';
 import Landing from './pages/Landing';
 import Auth from './pages/Auth';
 import './components/Toast.css';
@@ -35,23 +36,37 @@ function AppContent() {
   const { user } = useAuth();
   const { loading } = usePantry();
   const [showTour, setShowTour] = useState(false);
+  const [showWhatsNew, setShowWhatsNew] = useState(false);
 
-  // Check tour status when user arrives at the authenticated shell
+  // Check tour status when user arrives at the authenticated shell.
+  // New users get the tour (which already covers the new features); returning
+  // users who finished the tour get the one-time What's New popup instead.
   useEffect(() => {
-    if (user && !loading && !isTourCompleted()) {
-      setShowTour(true);
+    if (user && !loading) {
+      if (!isTourCompleted()) {
+        setShowTour(true);
+      } else if (shouldShowWhatsNew()) {
+        setShowWhatsNew(true);
+      }
     }
   }, [user, loading]);
 
-  // Listen for "restart tour" events dispatched from Settings
+  // Listen for "restart tour" / "show what's new" events dispatched from Settings
   useEffect(() => {
-    const handler = () => setShowTour(true);
-    window.addEventListener('pantry-restart-tour', handler);
-    return () => window.removeEventListener('pantry-restart-tour', handler);
+    const tourHandler = () => setShowTour(true);
+    const whatsNewHandler = () => setShowWhatsNew(true);
+    window.addEventListener('pantry-restart-tour', tourHandler);
+    window.addEventListener('pantry-show-whats-new', whatsNewHandler);
+    return () => {
+      window.removeEventListener('pantry-restart-tour', tourHandler);
+      window.removeEventListener('pantry-show-whats-new', whatsNewHandler);
+    };
   }, []);
 
   const handleTourComplete = useCallback(() => {
     setShowTour(false);
+    // The tour walks through everything the popup would list — don't stack it.
+    markWhatsNewSeen();
   }, []);
 
   if (!user) {
@@ -91,6 +106,7 @@ function AppContent() {
       </Suspense>
       <BottomNav />
       {showTour && <Tour onComplete={handleTourComplete} />}
+      {showWhatsNew && !showTour && <WhatsNew onClose={() => setShowWhatsNew(false)} />}
     </>
   );
 }

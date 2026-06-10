@@ -80,7 +80,7 @@
   width: 58px;
   height: 58px;
   border-radius: 50%;
-  background: var(--color-accent);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
   color: #fff;
   flex-shrink: 0;
   margin-top: -28px;

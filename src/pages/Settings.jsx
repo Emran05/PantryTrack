@@ -571,6 +571,14 @@ export default function Settings() {
               </svg>
               Retake App Tour
             </button>
+            <button
+              className="btn btn-secondary btn-full"
+              onClick={() => window.dispatchEvent(new CustomEvent('pantry-show-whats-new'))}
+              style={{ marginTop: '8px' }}
+            >
+              <span style={{ marginRight: '8px' }} aria-hidden="true">✨</span>
+              See What&rsquo;s New
+            </button>
           </div>
         </div>
 
@@ -583,7 +591,7 @@ export default function Settings() {
             </div>
             <div className="settings-row">
               <span className="settings-label">Version</span>
-              <span className="settings-value">3.0.0 (Cloud)</span>
+              <span className="settings-value">3.1.0 (Cloud)</span>
             </div>
             <div className="settings-row">
               <span className="settings-label">Storage</span>

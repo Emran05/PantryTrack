@@ -8,6 +8,8 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--color-border);
+  /* Keep content below the notch / Dynamic Island on iOS standalone */
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 .header-inner {
@@ -30,8 +32,9 @@
   width: 32px;
   height: 32px;
   border-radius: var(--radius-md);
-  background: var(--color-accent);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
   color: var(--color-text-inverse);
+  box-shadow: 0 2px 8px var(--color-accent-glow);
   font-size: var(--font-size-md);
   font-weight: 800;
   letter-spacing: -0.5px;

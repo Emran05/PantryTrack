@@ -59,6 +59,11 @@ Legend: **Effort** S (<½ day) · M (½–2 days) · L (2+ days / needs backend 
 
 ## Recently shipped (do not re-add)
 
+- Front-end revamp: ambient glow background, gradient buttons/titles/logo, card depth,
+  desktop two-column grids (Pantry/Recipes/Shopping/Dashboard) with wider max-width,
+  iOS safe-area support, keyboard focus rings, prefers-reduced-motion (2026-06-10)
+- "What's New" popup (WhatsNew.jsx) — shows once per WHATS_NEW_VERSION, re-openable
+  from Settings → Help; suppressed for new users who get the tour instead (2026-06-10)
 - "I cooked this" modal — confirm matched items, decrement, log consumption (2026-06-10)
 - Dietary filter chips on Recipes — AI prompt + local enforcement (2026-06-10)
 - Recipe favorites with Favorites section (2026-06-10)
