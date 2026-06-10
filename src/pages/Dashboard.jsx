@@ -3,9 +3,25 @@ import { useNavigate } from 'react-router-dom';
 import { getPantryItems } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
 import { CATEGORIES, getExpirationStatus, getDaysUntilExpiration, getCategoryInfo } from '../lib/helpers';
+import { getConsumptionLog, consumptionStatsLastNDays } from '../lib/preferences';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useToast } from '../components/ToastContext';
 import './Dashboard.css';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function relativeDay(ts) {
+  const days = Math.floor((Date.now() - ts) / DAY_MS);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  return `${days}d ago`;
+}
+
+const ACTIVITY_LABEL = {
+  used: 'Used',
+  wasted: 'Wasted',
+  donated: 'Donated',
+};
 
 // --- Animated SVG Icons ---
 function FlameIcon({ animated }) {
@@ -119,7 +135,7 @@ export default function Dashboard() {
     }).catch(err => {
       if (seq !== fetchSeqRef.current) return;
       console.error('Failed to load dashboard items:', err);
-      showToast('Failed to load dashboard data');
+      showToast('Failed to load dashboard data', 'error');
       setLoading(false);
     });
   }, [activePantry, showToast]);
@@ -159,22 +175,36 @@ export default function Dashboard() {
       .sort((a, b) => new Date(a.expirationDate) - new Date(b.expirationDate))
       .slice(0, 5);
 
-    // Streak: days since last expired item (honest — 0 when no data)
-    const lastExpired = items
-      .filter((i) => getExpirationStatus(i.expirationDate) === 'expired')
-      .sort((a, b) => new Date(b.expirationDate) - new Date(a.expirationDate))[0];
-    
+    // Streak — based on real consumption events when we have them.
+    // Log is newest-first.
+    const log = getConsumptionLog(activePantry?.id);
+    const lastWasted = log.find((e) => e.reason === 'wasted');
     let streakDays = 0;
-    if (lastExpired) {
-      const expDate = new Date(lastExpired.expirationDate);
-      const now = new Date();
-      streakDays = Math.max(0, Math.floor((now - expDate) / (1000 * 60 * 60 * 24)));
+    if (lastWasted) {
+      streakDays = Math.max(0, Math.floor((Date.now() - lastWasted.timestamp) / DAY_MS));
+    } else if (log.length > 0) {
+      // Never wasted anything since tracking began — streak is the whole
+      // tracked period.
+      streakDays = Math.max(0, Math.floor((Date.now() - log[log.length - 1].timestamp) / DAY_MS));
+    } else {
+      // No consumption history yet — fall back to "days since the most recent
+      // expired item" (0 when there's no signal at all; never fabricate).
+      const lastExpired = items
+        .filter((i) => getExpirationStatus(i.expirationDate) === 'expired')
+        .sort((a, b) => new Date(b.expirationDate) - new Date(a.expirationDate))[0];
+      if (lastExpired) {
+        streakDays = Math.max(0, Math.floor((new Date() - new Date(lastExpired.expirationDate)) / DAY_MS));
+      }
     }
-    // When nothing is expired, streak is unknown — show 0 instead of fabricating 7
 
-    // "Waste saved" — rough estimate: non-expired items × $3 avg (labeled as estimate)
-    const usedBeforeExpiry = fresh + expiringSoon;
-    const savedEstimate = usedBeforeExpiry * 3;
+    // Money saved — items actually used (not wasted) in the last 30 days × $3
+    // average. Honest 0 until the user starts logging consumption.
+    const stats30 = consumptionStatsLastNDays(activePantry?.id, 30);
+    const usedLast30 = Math.round(stats30.used);
+    const savedEstimate = Math.round(stats30.used * 3);
+
+    // Recent activity feed — last 5 consumption events.
+    const recentActivity = log.slice(0, 5);
 
     // Weekly snapshot — items added in last 7 days
     const weekAgo = new Date();
@@ -189,8 +219,8 @@ export default function Dashboard() {
       count: cat.count,
     }));
 
-    return { total, expired, expiringSoon, fresh, categories, upcomingExpiry, streakDays, savedEstimate, addedThisWeek, donutSegments };
-  }, [items]);
+    return { total, expired, expiringSoon, fresh, categories, upcomingExpiry, streakDays, savedEstimate, usedLast30, recentActivity, addedThisWeek, donutSegments };
+  }, [items, activePantry]);
 
   if (loading) {
     return (
@@ -347,11 +377,15 @@ export default function Dashboard() {
             <div className="highlight-popup animate-scale-in">
               <div className="highlight-popup-title">Money Saved</div>
               <p className="highlight-popup-desc">
-                By using <strong>{stats.fresh + stats.expiringSoon} items</strong> before they expired, you saved an estimated <strong>${stats.savedEstimate}</strong>.
+                {stats.usedLast30 > 0 ? (
+                  <>You used <strong>{stats.usedLast30} item{stats.usedLast30 !== 1 ? 's' : ''}</strong> in the last 30 days instead of letting them go to waste — about <strong>${stats.savedEstimate}</strong> saved.</>
+                ) : (
+                  <>Track what you use (swipe an item → Use) and we'll estimate how much money you're saving.</>
+                )}
               </p>
               <div className="highlight-popup-stat">
                 <span>~$3/item avg</span>
-                <span>{stats.fresh + stats.expiringSoon} used</span>
+                <span>{stats.usedLast30} used · 30d</span>
               </div>
             </div>
           )}
@@ -449,6 +483,25 @@ export default function Dashboard() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Recent consumption activity */}
+      {stats.recentActivity.length > 0 && (
+        <div className="dashboard-section animate-fade-in">
+          <h3 className="section-title">Activity</h3>
+          <div className="expiry-list">
+            {stats.recentActivity.map((e) => (
+              <div key={e.id} className="expiry-item card">
+                <div className="expiry-item-info">
+                  <span className="expiry-item-name">
+                    {ACTIVITY_LABEL[e.reason] || 'Used'} {e.qty} {e.unit || ''} {e.itemName}
+                  </span>
+                </div>
+                <span className="expiry-item-days">{relativeDay(e.timestamp)}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}

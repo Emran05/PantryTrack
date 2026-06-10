@@ -25,7 +25,7 @@ export default function Settings() {
 
   // AI settings — Gemini key + rate limit status
   const [aiKeyInput, setAiKeyInput] = useState('');
-  const [aiKeySource, setAiKeySource] = useState(getKeySource()); // null | 'env' | 'user'
+  const [aiKeySource, setAiKeySource] = useState(getKeySource()); // null | 'project' | 'user'
   const [aiQuotaTick, setAiQuotaTick] = useState(0);
 
   const refreshAiStatus = useCallback(() => {
@@ -121,7 +121,7 @@ export default function Settings() {
       showToast('Profile updated!');
     } catch (err) {
       console.error(err);
-      showToast('Failed to update profile');
+      showToast('Failed to update profile', 'error');
     }
     setLoading(false);
   };
@@ -140,7 +140,7 @@ export default function Settings() {
       showToast('New home created!');
     } catch (err) {
       console.error(err);
-      showToast('Failed to create home');
+      showToast('Failed to create home', 'error');
     }
     setLoading(false);
   };
@@ -156,7 +156,7 @@ export default function Settings() {
       showToast('Area added!');
     } catch (err) {
       console.error(err);
-      showToast('Failed to create area');
+      showToast('Failed to create area', 'error');
     }
     setLoading(false);
   };
@@ -169,7 +169,7 @@ export default function Settings() {
       showToast('Area deleted');
     } catch (err) {
       console.error(err);
-      showToast('Failed to delete area');
+      showToast('Failed to delete area', 'error');
     }
     setLoading(false);
   };
@@ -178,7 +178,7 @@ export default function Settings() {
     if (!activePantry) return;
     navigator.clipboard.writeText(activePantry.id)
       .then(() => showToast('Home ID copied to clipboard'))
-      .catch(() => showToast('Could not copy — try manually selecting the ID'));
+      .catch(() => showToast('Could not copy — try manually selecting the ID', 'error'));
   };
 
   const handleJoinHome = async (e) => {
@@ -196,7 +196,7 @@ export default function Settings() {
       if (err.code === 'ALREADY_MEMBER') {
         showToast('You are already a member of this home');
       } else {
-        showToast('Could not join — check the Home ID and try again');
+        showToast('Could not join — check the Home ID and try again', 'error');
       }
     }
     setLoading(false);

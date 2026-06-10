@@ -276,7 +276,11 @@ Rules:
 - skip recipes that need fewer than 2 of the user's items
 - prefer recipes that maximize matchRatio`;
 
-  const result = await callGeminiWithFallback([{ text: prompt }], { temperature: 0.7 }, tierOpts);
+  const result = await callGeminiWithFallback(
+    [{ text: prompt }],
+    { temperature: 0.7, responseMimeType: 'application/json' },
+    tierOpts
+  );
   const recipes = parseJsonStrict(result.text);
   if (!Array.isArray(recipes)) {
     throw new GeminiError('Gemini did not return a recipe array', 'GEMINI_BAD_FORMAT', { raw: result.text });
@@ -332,7 +336,11 @@ Rules:
 - if a line looks like garbage OCR (only symbols, no recognisable word), skip it
 - prefer recall — include borderline grocery items rather than dropping them`;
 
-  const result = await callGeminiWithFallback([{ text: prompt }], { temperature: 0.2 }, tierOpts);
+  const result = await callGeminiWithFallback(
+    [{ text: prompt }],
+    { temperature: 0.2, responseMimeType: 'application/json' },
+    tierOpts
+  );
   const items = parseJsonStrict(result.text);
   if (!Array.isArray(items)) {
     throw new GeminiError('Gemini did not return an item array', 'GEMINI_BAD_FORMAT', { raw: result.text });
@@ -379,7 +387,7 @@ Rules:
       { text: prompt },
       { inline_data: { mime_type: mimeType, data: imageBase64 } },
     ],
-    { temperature: 0.2 },
+    { temperature: 0.2, responseMimeType: 'application/json' },
     tierOpts
   );
   const items = parseJsonStrict(result.text);

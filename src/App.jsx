@@ -24,11 +24,6 @@ const Settings = lazy(() => import('./pages/Settings'));
 function PageTransitionWrapper({ children }) {
   const location = useLocation();
 
-  useEffect(() => {
-    // Apply saved theme on initial mount
-    applyTheme(getSavedTheme());
-  }, []);
-
   return (
     <div key={location.pathname} className="page-transition">
       {children}
@@ -101,6 +96,14 @@ function AppContent() {
 }
 
 export default function App() {
+  // Apply the saved theme once for the whole app — previously this lived in
+  // PageTransitionWrapper, which (a) only exists on authenticated routes, so
+  // Landing/Auth flashed the default theme, and (b) remounts on every route
+  // change, re-applying the theme each navigation.
+  useEffect(() => {
+    applyTheme(getSavedTheme());
+  }, []);
+
   return (
     <AuthProvider>
       <PantryProvider>

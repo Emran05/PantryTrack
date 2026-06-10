@@ -37,11 +37,12 @@ export default function ConsumeModal({ item, pantryId, onClose, onDone }) {
 
   const setAmountClamped = (v) => {
     const n = typeof v === 'number' ? v : parseFloat(v);
-    if (!Number.isFinite(n) || n < 0) {
-      setAmount(0);
-      return;
-    }
-    setAmount(Math.min(n, item.quantity));
+    const next = (!Number.isFinite(n) || n < 0) ? 0 : Math.min(n, item.quantity);
+    setAmount(next);
+    // The restock checkbox is only visible (and only makes sense) at full
+    // quantity — clear it if the user dials the amount back down, otherwise a
+    // hidden-but-checked box silently adds to the shopping list on save.
+    if (next !== item.quantity && restock) setRestock(false);
   };
 
   const handleSubmit = async (e) => {
@@ -69,7 +70,7 @@ export default function ConsumeModal({ item, pantryId, onClose, onDone }) {
       // If the user opted to restock — or the item is now gone and they didn't
       // explicitly opt out — surface a clear path to the shopping list.
       const finished = result.removed;
-      if (restock) {
+      if (restock && finished) {
         try {
           await addShoppingItem(
             pantryId,
@@ -81,7 +82,7 @@ export default function ConsumeModal({ item, pantryId, onClose, onDone }) {
             showToast(`Removed · "${item.name}" already on your list`);
           } else {
             console.error(err);
-            showToast('Removed (but failed to add to shopping list)');
+            showToast('Removed (but failed to add to shopping list)', 'error');
           }
         }
       } else if (finished) {
@@ -100,7 +101,7 @@ export default function ConsumeModal({ item, pantryId, onClose, onDone }) {
                 if (err.code === 'DUPLICATE_ITEM') {
                   showToast(`Already on your list`);
                 } else {
-                  showToast('Could not add to list');
+                  showToast('Could not add to list', 'error');
                 }
               }
             },
@@ -122,7 +123,7 @@ export default function ConsumeModal({ item, pantryId, onClose, onDone }) {
                 if (err.code === 'DUPLICATE_ITEM') {
                   showToast(`Already on your list`);
                 } else {
-                  showToast('Could not add to list');
+                  showToast('Could not add to list', 'error');
                 }
               }
             },
@@ -136,7 +137,7 @@ export default function ConsumeModal({ item, pantryId, onClose, onDone }) {
       onClose();
     } catch (err) {
       console.error('consumePantryItem failed:', err);
-      showToast('Could not update — please try again');
+      showToast('Could not update — please try again', 'error');
     } finally {
       setSubmitting(false);
     }

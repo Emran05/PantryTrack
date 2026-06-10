@@ -1,8 +1,9 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { getPantryItems, deletePantryItem } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
 import { CATEGORIES } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
+import { getPinnedIds, reconcilePins } from '../lib/preferences';
 import SearchBar from '../components/SearchBar';
 import ItemCard from '../components/ItemCard';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -14,6 +15,8 @@ export default function Pantry() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
+  // Bumped when a pin toggles so the pinned-first sort recomputes.
+  const [pinTick, setPinTick] = useState(0);
   const { showToast } = useToast();
   const fetchSeqRef = useRef(0);
 
@@ -25,13 +28,21 @@ export default function Pantry() {
       // If the user switched pantries while this request was in flight,
       // a newer fetch already started — discard this stale response.
       if (seq !== fetchSeqRef.current) return;
+      // GC pins for items that no longer exist before they feed the sort.
+      reconcilePins(activePantry.id, data.map((i) => i.id));
       setItems(data);
     } catch (err) {
       if (seq !== fetchSeqRef.current) return;
       console.error('Failed to load pantry items:', err);
-      showToast('Failed to load pantry items');
+      showToast('Failed to load pantry items', 'error');
     }
   }, [activePantry, showToast]);
+
+  const pinnedSet = useMemo(
+    () => new Set(getPinnedIds(activePantry?.id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activePantry, items, pinTick]
+  );
 
   useEffect(() => {
     if (activePantry) {
@@ -53,7 +64,7 @@ export default function Pantry() {
       showToast(`"${item?.name || 'Item'}" removed`);
     } catch (err) {
       console.error('Failed to delete item:', err);
-      showToast('Failed to delete item');
+      showToast('Failed to delete item', 'error');
     }
   }, [items, refresh, showToast]);
 
@@ -112,16 +123,26 @@ export default function Pantry() {
         ) : filtered.length > 0 ? (
           Object.entries(groupedItems)
             .sort(([a], [b]) => (a === 'Unassigned' ? 1 : b === 'Unassigned' ? -1 : a.localeCompare(b)))
-            .map(([area, areaItems]) => (
-              <div key={area} className="pantry-area-group">
-                <h3 className="pantry-area-title" style={{ marginTop: '16px', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  {area}
-                </h3>
-                {areaItems.map((item) => (
-                  <ItemCard key={item.id} item={item} onDelete={handleDelete} onRefresh={refresh} />
-                ))}
-            </div>
-          ))
+            .map(([area, areaItems]) => {
+              // Pinned items float to the top of their area; relative order is
+              // otherwise preserved (sort is stable).
+              const sorted = [...areaItems].sort((a, b) => {
+                const ap = pinnedSet.has(a.id);
+                const bp = pinnedSet.has(b.id);
+                if (ap === bp) return 0;
+                return ap ? -1 : 1;
+              });
+              return (
+                <div key={area} className="pantry-area-group">
+                  <h3 className="pantry-area-title" style={{ marginTop: '16px', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                    {area}
+                  </h3>
+                  {sorted.map((item) => (
+                    <ItemCard key={item.id} item={item} onDelete={handleDelete} onRefresh={refresh} onPinChange={() => setPinTick((t) => t + 1)} />
+                  ))}
+                </div>
+              );
+            })
         ) : (
           <div className="empty-state animate-fade-in">
             <div className="empty-state-icon">

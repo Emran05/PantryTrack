@@ -2,6 +2,14 @@
 
 This file is a documentation-only audit. No application code was changed.
 
+> **Status (2026-06-10):** Most items here have since been fixed — see
+> POST_ISSUES.md for the authoritative bug ledger. Still open: **1** (server-side
+> transactions/RPC), **3** (token-based invites; Home-ID sharing shipped as the
+> honest interim), **11** (backend not versioned in repo), **15** (cross-tab
+> default-pantry race needs a DB constraint), **18** (no tests/lint). All of
+> these are tracked in FEATURE_POOL.md Tier 3. Item 17 (vulnerable deps) was
+> re-fixed 2026-06-10: `npm audit` is clean at vite 6.4.3 / react-router-dom 7.17.0.
+
 ## Audit scope
 
 Reviewed the Vite/React client, shared state, Supabase access layer, and the main pantry, shopping, recipes, receipt-scan, auth, and settings flows.

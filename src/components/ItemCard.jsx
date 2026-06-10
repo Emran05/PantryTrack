@@ -72,8 +72,7 @@ export default function ItemCard({ item, onDelete, onRefresh, onPinChange }) {
     navigate(`/item/${item.id}`);
   };
 
-  const handleAddToList = async (e) => {
-    e.stopPropagation();
+  const addToList = async () => {
     if (!activePantry) return;
     try {
       await addShoppingItem(activePantry.id, {
@@ -88,9 +87,14 @@ export default function ItemCard({ item, onDelete, onRefresh, onPinChange }) {
         showToast(`"${item.name}" is already on your list`);
       } else {
         console.error(err);
-        showToast('Error adding to list');
+        showToast('Error adding to list', 'error');
       }
     }
+  };
+
+  const handleAddToList = (e) => {
+    e.stopPropagation();
+    addToList();
   };
 
   const handleQtyChange = async (e, delta) => {
@@ -100,9 +104,15 @@ export default function ItemCard({ item, onDelete, onRefresh, onPinChange }) {
     try {
       await updatePantryItem(item.id, { quantity: newQty });
       if (onRefresh) onRefresh();
+      // Running low after a decrement — offer a one-tap restock.
+      if (delta < 0 && newQty <= 1) {
+        showToast(`Only ${newQty} ${item.unit} left`, 'info', {
+          action: { label: 'Add to list', onClick: addToList },
+        });
+      }
     } catch (err) {
       console.error(err);
-      showToast('Failed to update quantity');
+      showToast('Failed to update quantity', 'error');
     }
   };
 

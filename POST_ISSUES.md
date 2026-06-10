@@ -136,6 +136,108 @@ Each entry has:
 
 ---
 
+### BUG-N13 — ConsumeModal honors a hidden restock checkbox (FIXED 2026-06-10)
+**What broke:** Check "Add to shopping list" at full quantity, then lower the amount — the checkbox disappears but `restock` stays `true`. A partial consume then silently added the item to the shopping list and toasted "Removed · added to shopping list" even though the item wasn't removed.
+
+**Root cause:** Checkbox visibility was conditional (`amount === item.quantity`) but the backing state was never reset when the condition stopped holding.
+
+**Location:** `src/components/ConsumeModal.jsx`
+
+**Fix:** `setAmountClamped` clears `restock` whenever the amount moves off full quantity; the restock branch also requires `finished` as a second guard.
+
+**Lesson:** Any state whose UI control can be conditionally hidden must be reset when the control hides. A hidden-but-set flag is a logic bomb.
+
+---
+
+### BUG-N14 — Recipes page burned AI quota on no-op refreshes (FIXED 2026-06-10)
+**What broke:** Every realtime event or pantry refetch produced a new `items` array identity, which re-armed the debounced AI fetch — consuming a rate-limit token and a Gemini call even when the pantry contents were identical.
+
+**Root cause:** Effect keyed on array identity, not content.
+
+**Location:** `src/pages/Recipes.jsx`
+
+**Fix:** Compute a content signature (`name|qty|expiry` sorted and joined) before fetching; skip if it matches the last-fetched signature. Retry banners pass `force = true` to bypass the guard.
+
+**Lesson:** Anything that costs money/quota must be keyed on content, not object identity. React data flows re-create arrays constantly.
+
+---
+
+### BUG-N15 — `moveCheckedToPantry` duplicates items on partial failure (FIXED 2026-06-10)
+**What broke:** The add phase used `Promise.all` — one failed insert rejected the whole batch, the delete phase never ran, and retrying re-added every item that had already landed in the pantry.
+
+**Root cause:** All-or-nothing promise handling around a non-transactional multi-write.
+
+**Location:** `src/lib/supabaseStorage.js`
+
+**Fix:** `Promise.allSettled` on the adds; only the shopping rows whose pantry insert succeeded get deleted. Returns `{ moved, failed }` and ShoppingList reports both counts.
+
+**Lesson:** Without a server-side transaction, pair each write with its compensating action individually. Never gate cleanup of succeeded writes on the success of unrelated ones.
+
+---
+
+### BUG-N16 — Failure toasts rendered with a success checkmark (FIXED 2026-06-10)
+**What broke:** `showToast(message)` defaults to `type = 'success'`. Nearly every error path omitted the type, so "Failed to load pantry items" appeared with a ✓.
+
+**Location:** ~27 call sites across pages/components.
+
+**Fix:** Audited every failure-path `showToast` and added explicit `'error'` (or `'info'` for not-found/mixed outcomes).
+
+**Lesson:** Defaulting a toast type to `success` makes every forgotten argument a lie. When adding a helper with a default, pick the default that fails safe.
+
+---
+
+### BUG-N17 — Theme only applied inside the authenticated shell, and re-applied per navigation (FIXED 2026-06-10)
+**What broke:** `applyTheme(getSavedTheme())` lived in `PageTransitionWrapper`, which (a) renders only on authenticated routes, so Landing/Auth flashed the default theme for Arctic users, and (b) remounts on every route change (`key={location.pathname}`), re-running the effect each navigation.
+
+**Location:** `src/App.jsx`
+
+**Fix:** Moved theme application to a one-time effect in the root `App` component.
+
+**Lesson:** Global one-time side effects belong at the root, never inside a component that remounts per route.
+
+---
+
+### BUG-N18 — Editing an item downloaded the entire pantry (FIXED 2026-06-10)
+**What broke:** `AddEditItem` called `getPantryItems(pantryId)` and `find()`-ed one row — the whole pantry over the wire to edit a single item.
+
+**Location:** `src/pages/AddEditItem.jsx`, new `getPantryItem(itemId, pantryId)` in `src/lib/supabaseStorage.js`
+
+**Fix:** Single-row `maybeSingle()` fetch scoped to the active pantry (preserves the BUG-N07 stale-URL guard).
+
+---
+
+### BUG-N19 — `refreshPantries` left a stale `activePantry` object (FIXED 2026-06-10)
+**What broke:** After refresh, the active pantry kept its old object (stale name) as long as its ID still existed.
+
+**Location:** `src/contexts/PantryContext.jsx`
+
+**Fix:** Re-point `activePantry` at the fresh object when its visible fields changed; identity is preserved otherwise to avoid pointless downstream refetches.
+
+---
+
+### BUG-N20 — `parseInt` truncated fractional quantities (FIXED 2026-06-10)
+**What broke:** Receipt review and shopping list quantity inputs parsed with `parseInt`, but the AI returns quantities like `0.5` (lbs) and the pantry supports floats — editing "0.5" snapped it to 1.
+
+**Location:** `src/pages/ScanReceipt.jsx`, `src/pages/ShoppingList.jsx`
+
+**Fix:** `parseFloat` with `step="0.5"` / `min="0.5"`, matching AddEditItem.
+
+---
+
+### IMPROVEMENT — Honest dashboard metrics via consumption log (2026-06-10)
+The "Est. Saved" card no longer counts un-expired items as money saved. Streak = days since the last `wasted` consumption event (falls back to days-since-last-expired when no log exists); saved = real `used` events in the last 30 days × $3; new Activity section shows the last 5 consumption events. Completes PICKUP item 11 / FIX_LIST item 10.
+
+### IMPROVEMENT — Pin sort wired in Pantry (2026-06-10)
+Pinned items now float to the top of their area group, pins are GC'd against live items on every refresh, and toggling a pin re-sorts immediately. Completes PICKUP item 1.
+
+### IMPROVEMENT — Restock nudge on +/- decrement (2026-06-10)
+Decrementing an item to ≤1 via the card's − button now shows the same "Add to list" action toast as the ConsumeModal. Completes PICKUP item 9.
+
+### IMPROVEMENT — Dependencies patched (2026-06-10)
+`npm audit fix`: react-router-dom 7.17.0 (RCE/open-redirect/DoS advisories), vite 6.4.3 (path traversal/arbitrary file read), ws (memory disclosure). `npm audit` now reports 0 vulnerabilities. Gemini calls now request `responseMimeType: 'application/json'` for reliable JSON output.
+
+---
+
 ### BUG-N01 — `updatePantryItem` writes empty strings to date / UUID columns (FIXED)
 **What broke:** Editing an item and clearing the expiration date or selecting "No specific area" in the area dropdown caused a Supabase error. The form sends `expirationDate: ''` and `area_id: ''`, and `updatePantryItem` passed both straight through. Postgres rejects `''` as a date or as a UUID.
 

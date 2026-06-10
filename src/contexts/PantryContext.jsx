@@ -75,8 +75,17 @@ export function PantryProvider({ children }) {
   const refreshPantries = async () => {
     const data = await getUserPantries();
     setPantries(data);
-    if (activePantry && !data.find(p => p.id === activePantry.id)) {
-      setActivePantry(data[0] || null);
+    if (activePantry) {
+      const fresh = data.find(p => p.id === activePantry.id);
+      if (!fresh) {
+        // Active pantry is gone (left/deleted) — fall back to the first one.
+        setActivePantry(data[0] || null);
+      } else if (fresh.name !== activePantry.name) {
+        // Re-point only when something visible changed; keeping the same
+        // object identity otherwise avoids pointless refetches in pages whose
+        // effects key on `activePantry`.
+        setActivePantry(fresh);
+      }
     }
     return data; // Return fresh list so callers can use it
   };

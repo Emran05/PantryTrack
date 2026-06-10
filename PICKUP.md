@@ -1,6 +1,11 @@
 # Pickup — In-Flight Feature Work
 
-Last updated: 2026-05-06
+Last updated: 2026-06-10
+
+> **Status update (2026-06-10):** Items **1 (pin sort)**, **9 (restock on +/-)**,
+> and **11 (honest dashboard via consumption log)** are now DONE — see
+> POST_ISSUES.md for details. The remaining items (2–8, 10) have moved to
+> **FEATURE_POOL.md**, which is now the canonical future-features list.
 
 This doc captures what's already wired and what's still left to build for the
 10-feature plan in `CHANGES_AND_FEATURES.md`. Read top to bottom — order matters

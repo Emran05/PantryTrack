@@ -33,7 +33,7 @@ export default function ShoppingList() {
     } catch (err) {
       if (seq !== fetchSeqRef.current) return;
       console.error('Failed to load shopping list:', err);
-      showToast('Failed to load shopping list');
+      showToast('Failed to load shopping list', 'error');
     }
   }, [activePantry, showToast]);
 
@@ -63,7 +63,7 @@ export default function ShoppingList() {
         showToast(`"${trimmed}" is already on your list`);
       } else {
         console.error('Failed to add item:', err);
-        showToast('Failed to add item');
+        showToast('Failed to add item', 'error');
       }
     }
   };
@@ -74,7 +74,7 @@ export default function ShoppingList() {
       refresh();
     } catch (err) {
       console.error('Failed to update item:', err);
-      showToast('Failed to update item');
+      showToast('Failed to update item', 'error');
     }
   };
 
@@ -86,21 +86,23 @@ export default function ShoppingList() {
       showToast(`"${item?.name || 'Item'}" removed`);
     } catch (err) {
       console.error('Failed to delete item:', err);
-      showToast('Failed to delete item');
+      showToast('Failed to delete item', 'error');
     }
   };
 
   const handleMoveToPantry = async () => {
     if (!activePantry) return;
     try {
-      const count = await moveCheckedToPantry(activePantry.id);
-      if (count > 0) {
-        refresh();
-        showToast(`${count} item${count !== 1 ? 's' : ''} moved to pantry`);
+      const { moved, failed } = await moveCheckedToPantry(activePantry.id);
+      if (moved > 0 || failed > 0) refresh();
+      if (failed > 0) {
+        showToast(`${moved} moved · ${failed} failed — still on your list`, 'error');
+      } else if (moved > 0) {
+        showToast(`${moved} item${moved !== 1 ? 's' : ''} moved to pantry`);
       }
     } catch (err) {
       console.error('Failed to move items:', err);
-      showToast('Failed to move items to pantry');
+      showToast('Failed to move items to pantry', 'error');
     }
   };
 
@@ -126,9 +128,10 @@ export default function ShoppingList() {
           <input
             type="number"
             className="shopping-qty-input"
-            min="1"
+            min="0.5"
+            step="0.5"
             value={quantity}
-            onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+            onChange={(e) => setQuantity(parseFloat(e.target.value) || 1)}
           />
           <select
             className="shopping-unit-select"

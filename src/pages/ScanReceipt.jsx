@@ -104,7 +104,7 @@ export default function ScanReceipt() {
         }
         setScanError({ code: err.code, message, resetLabel: err.resetLabel });
       } else {
-        showToast('Failed to parse receipt. Please try again.');
+        showToast('Failed to parse receipt. Please try again.', 'error');
       }
       setPreview(null);
       clearPendingScan();
@@ -215,13 +215,13 @@ export default function ScanReceipt() {
       // Import landed — discard the persisted blob so the next visit starts clean.
       clearPendingScan();
       if (failed > 0) {
-        showToast(`${succeeded} added, ${failed} failed — check your pantry`);
+        showToast(`${succeeded} added, ${failed} failed — check your pantry`, 'info');
       } else {
         showToast(`${succeeded} item${succeeded !== 1 ? 's' : ''} added to pantry`);
       }
       setTimeout(() => navigate('/'), 1200);
     } else {
-      showToast('All items failed to import — please try again');
+      showToast('All items failed to import — please try again', 'error');
     }
   };
 
@@ -341,9 +341,10 @@ export default function ScanReceipt() {
                       <input
                         type="number"
                         className="scan-item-qty"
-                        min="1"
+                        min="0.5"
+                        step="0.5"
                         value={item.quantity}
-                        onChange={(e) => updateItem(item._key, 'quantity', parseInt(e.target.value) || 1)}
+                        onChange={(e) => updateItem(item._key, 'quantity', parseFloat(e.target.value) || 1)}
                       />
                       <select
                         className="scan-item-unit"

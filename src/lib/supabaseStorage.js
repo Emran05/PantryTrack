@@ -239,6 +239,37 @@ export async function getPantryItems(pantryId) {
   }));
 }
 
+// Fetch one item, scoped to a pantry so a stale URL can't surface another
+// home's row. Returns null when not found (or not visible under RLS).
+export async function getPantryItem(itemId, pantryId) {
+  const { data, error } = await supabase
+    .from('pantry_items')
+    .select(`
+      id,
+      pantry_id,
+      area_id,
+      name,
+      category,
+      quantity,
+      unit,
+      expiration_date,
+      created_at,
+      notes,
+      areas ( name )
+    `)
+    .eq('id', itemId)
+    .eq('pantry_id', pantryId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    ...data,
+    createdAt: data.created_at,
+    expirationDate: data.expiration_date,
+    areaName: data.areas?.name,
+  };
+}
+
 export async function addPantryItem(pantryId, item, { skipDuplicateCheck = false } = {}) {
   const trimmedName = (item.name || '').trim();
   if (!trimmedName) {
@@ -452,16 +483,19 @@ export async function deleteShoppingItem(itemId) {
   if (error) throw error;
 }
 
+// Returns { moved, failed }. Only deletes shopping rows whose pantry insert
+// succeeded — with Promise.all a single failed insert used to abort the delete
+// phase entirely, so a retry re-added the items that had already landed.
 export async function moveCheckedToPantry(pantryId) {
   const shoppingItems = await getShoppingList(pantryId);
   const checked = shoppingItems.filter((i) => i.isChecked);
-  
-  if (checked.length === 0) return 0;
-  
+
+  if (checked.length === 0) return { moved: 0, failed: 0 };
+
   // Add all checked items to pantry in parallel (skip per-item duplicate check — items
   // on the shopping list are already unique; the pantry check would be a false positive
   // since users intentionally restock items they've run out of)
-  await Promise.all(checked.map(item => {
+  const addResults = await Promise.allSettled(checked.map(item => {
     const category = item.category || 'other';
     return addPantryItem(pantryId, {
       name: item.name,
@@ -472,10 +506,19 @@ export async function moveCheckedToPantry(pantryId) {
     }, { skipDuplicateCheck: true });
   }));
 
-  // Delete all checked shopping items in parallel
-  await Promise.all(checked.map(item => deleteShoppingItem(item.id)));
-  
-  return checked.length;
+  const landed = checked.filter((_, i) => addResults[i].status === 'fulfilled');
+  const failed = checked.length - landed.length;
+  addResults
+    .filter((r) => r.status === 'rejected')
+    .forEach((r) => console.error('Failed to move item to pantry:', r.reason));
+
+  // Delete only the shopping rows that actually made it into the pantry.
+  const deleteResults = await Promise.allSettled(landed.map(item => deleteShoppingItem(item.id)));
+  deleteResults
+    .filter((r) => r.status === 'rejected')
+    .forEach((r) => console.error('Failed to remove moved shopping item:', r.reason));
+
+  return { moved: landed.length, failed };
 }
 
 // Shared rate-limit pre-flight for any "receipts" path (image or OCR-text).

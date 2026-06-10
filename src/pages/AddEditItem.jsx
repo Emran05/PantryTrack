@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getPantryItems, addPantryItem, updatePantryItem, getAreas } from '../lib/supabaseStorage';
+import { getPantryItem, addPantryItem, updatePantryItem, getAreas } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
 import { CATEGORIES, UNITS, getDefaultExpirationDate } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
@@ -37,9 +37,10 @@ export default function AddEditItem() {
         setAreas(fetchedAreas || []);
 
         if (isEditing) {
-          const items = await getPantryItems(activePantry.id);
+          // Single-row fetch scoped to the active pantry — no need to download
+          // the whole pantry to edit one item.
+          const item = await getPantryItem(id, activePantry.id);
           if (cancelled) return;
-          const item = items.find((i) => String(i.id) === String(id));
           if (item) {
             setForm({
               name: item.name,
@@ -54,14 +55,14 @@ export default function AddEditItem() {
             // The item isn't in this pantry (user switched homes, or stale URL).
             // Bail out before the form lets the user submit an UPDATE against
             // an item they may no longer own.
-            showToast('Item not found in this home');
+            showToast('Item not found in this home', 'info');
             navigate('/', { replace: true });
             return;
           }
         }
       } catch (err) {
         console.error('Failed to load item or areas', err);
-        if (!cancelled) showToast('Failed to load item');
+        if (!cancelled) showToast('Failed to load item', 'error');
       }
       if (!cancelled) setLoading(false);
     }
@@ -98,11 +99,11 @@ export default function AddEditItem() {
               setForm(prev => ({ ...prev, name: data.product.product_name || prev.name }));
               showToast(`Found: ${data.product.product_name}`);
             } else {
-              showToast('Product not found in database');
+              showToast('Product not found in database', 'info');
             }
           } catch (e) {
             console.error(e);
-            if (!aborted) showToast('Error looking up product');
+            if (!aborted) showToast('Error looking up product', 'error');
           }
         },
         () => {} // Ignore scan errors per frame
@@ -110,7 +111,7 @@ export default function AddEditItem() {
     }).catch(err => {
       console.error('Failed to load html5-qrcode', err);
       if (!aborted) {
-        showToast('Scanner failed to load');
+        showToast('Scanner failed to load', 'error');
         setScanning(false);
       }
     });
@@ -180,7 +181,7 @@ export default function AddEditItem() {
       }
     } catch (err) {
       console.error('Error saving item:', err);
-      showToast(`Error: ${err.message || 'Failed to save item'}`);
+      showToast(`Error: ${err.message || 'Failed to save item'}`, 'error');
     } finally {
       setSubmitting(false);
     }

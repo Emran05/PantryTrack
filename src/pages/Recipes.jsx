@@ -56,11 +56,28 @@ export default function Recipes() {
   // user's key is consistently bad, we don't want to nag them every refresh.
   const hasShownFallbackToastRef = useRef(false);
 
-  const fetchAINow = useCallback(() => {
+  // Signature of the item set the last AI fetch ran against. Realtime events
+  // and pantry refreshes produce a new `items` array identity even when
+  // nothing changed — without this guard every refresh burned a rate-limit
+  // token and a Gemini call for identical results.
+  const lastAISignatureRef = useRef(null);
+
+  const itemsSignature = (list) =>
+    list
+      .map((i) => `${i.name}|${i.quantity}|${i.expirationDate || ''}`)
+      .sort()
+      .join('~');
+
+  const fetchAINow = useCallback((force = false) => {
     if (items.length === 0) {
       setAiRecipes(null);
+      lastAISignatureRef.current = null;
       return;
     }
+
+    const signature = itemsSignature(items);
+    if (!force && signature === lastAISignatureRef.current) return;
+    lastAISignatureRef.current = signature;
 
     const requestId = ++aiRequestId.current;
     setAiLoading(true);
@@ -152,9 +169,9 @@ export default function Recipes() {
     if (added === 0 && alreadyOnList > 0 && failed === 0) {
       showToast('All ingredients are already on your list');
     } else if (added === 0 && failed > 0) {
-      showToast('Could not add ingredients — please try again');
+      showToast('Could not add ingredients — please try again', 'error');
     } else if (failed > 0) {
-      showToast(`${added} added, ${failed} failed`);
+      showToast(`${added} added, ${failed} failed`, 'info');
     } else if (alreadyOnList > 0) {
       showToast(`${added} added · ${alreadyOnList} already on list`);
     } else {
@@ -202,7 +219,7 @@ export default function Recipes() {
             ? `Try again in ${aiError.retryDelaySeconds}s`
             : 'Try again in a moment';
           return (
-            <button className="ai-retry-banner animate-fade-in" onClick={fetchAINow}>
+            <button className="ai-retry-banner animate-fade-in" onClick={() => fetchAINow(true)}>
               <span>Google throttled the request. {wait}, or add your own key in Settings for more headroom.</span>
             </button>
           );
@@ -215,7 +232,7 @@ export default function Recipes() {
           );
         }
         return (
-          <button className="ai-retry-banner animate-fade-in" onClick={fetchAINow}>
+          <button className="ai-retry-banner animate-fade-in" onClick={() => fetchAINow(true)}>
             <span>AI suggestions unavailable — showing local recipes. Tap to retry.</span>
           </button>
         );
