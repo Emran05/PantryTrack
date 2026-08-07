@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import { reportError } from '../lib/errorReporting';
 
 // The only class component in the app — React error boundaries can't be
 // written as hooks. Catches render/lazy-chunk failures that would otherwise
@@ -13,6 +14,8 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error('Render error caught by boundary:', error, info);
+    // Without this the owner never learns the app crashed for a real user.
+    reportError('render', error, { componentStack: info?.componentStack });
   }
 
   handleRetry = () => {

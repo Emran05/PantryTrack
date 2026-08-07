@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
+import { installGlobalErrorReporting } from './lib/errorReporting'
 
 // A failed lazy-chunk import after a redeploy means the old hashed assets are
 // gone — one reload picks up the new build instead of a broken screen.
@@ -14,6 +15,9 @@ window.addEventListener('vite:preloadError', (event) => {
     window.location.reload();
   }
 });
+
+// Async errors and event-handler throws never reach a React boundary.
+installGlobalErrorReporting();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
