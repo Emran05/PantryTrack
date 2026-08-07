@@ -152,13 +152,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  background: rgba(46, 160, 67, 0.14);
+  width: 34px;
+  height: 34px;
+  /* Square-cornered with one clipped corner — the icon family's motif,
+     carried into the container that holds it. */
+  border-radius: 10px 3px 10px 10px;
+  background: rgba(46, 160, 67, 0.12);
+  border: 1px solid rgba(46, 160, 67, 0.22);
   color: #3fb950;
-  font-size: 0.8rem;
-  font-weight: 700;
 }
 
 .v2-split {

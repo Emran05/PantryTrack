@@ -1,0 +1,92 @@
+/* Two bands on the page's own background, hairline-separated (not a slab).
+   Typography numbers are Linear's: header and link are the SAME size and
+   differ only by weight and colour — contrast does the work, not scale. */
+
+.sfoot {
+  border-top: 1px solid rgb(255 255 255 / 0.07);
+  background: transparent;
+}
+
+.sfoot__inner {
+  max-width: 1100px;
+  margin-inline: auto;
+  padding: 56px 24px 0;
+}
+
+.sfoot__grid {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(3, 1fr);
+  gap: 32px;
+}
+
+.sfoot__brand {
+  display: block;
+  font-size: 0.94rem;
+  font-weight: 600;
+  color: #e6edf3;
+  letter-spacing: -0.01em;
+}
+
+.sfoot__tagline {
+  margin: 8px 0 0;
+  font-size: 0.81rem;
+  line-height: 1.5;
+  color: #8b949e;
+  max-width: 30ch;
+}
+
+.sfoot__col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px; /* Linear: 2-4px list gap, height comes from the rows */
+}
+
+.sfoot__head {
+  margin: 0 0 6px;
+  font-size: 0.81rem;
+  font-weight: 550;
+  color: #e6edf3;
+}
+
+.sfoot__link {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  font-size: 0.81rem;
+  font-weight: 400;
+  color: #8b949e;
+  text-decoration: none;
+  transition: color 140ms ease;
+}
+
+.sfoot__link:hover {
+  color: #e6edf3;
+}
+
+.sfoot__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 56px;
+  padding: 20px 0 calc(24px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgb(255 255 255 / 0.06);
+  font-size: 0.78rem;
+  color: #6e7681;
+}
+
+.sfoot__bar-note {
+  color: #565f6a;
+}
+
+@media (max-width: 900px) {
+  .sfoot__inner { padding: 40px 20px 0; }
+  /* 4 tracks -> 2 on phones; group width holds, column count changes. */
+  .sfoot__grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 28px 20px;
+  }
+  .sfoot__brand-col { grid-column: 1 / -1; }
+  .sfoot__bar { margin-top: 36px; }
+}

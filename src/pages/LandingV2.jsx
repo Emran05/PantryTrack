@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import LivePantryHero from '../components/LivePantryHero';
 import FloatingNav from '../components/FloatingNav';
+import SiteFooter from '../components/SiteFooter';
+import Icon from '../components/Icon';
 import { useTransition } from '../contexts/TransitionContext';
 import { initReveals } from '../lib/reveal';
 import './LandingV2.css';
@@ -61,17 +63,17 @@ export default function LandingV2() {
           <h2 className="v2-h2">The part everyone hates, automated</h2>
           <div className="v2-steps">
             <div className="v2-step">
-              <span className="v2-step-n">1</span>
+              <span className="v2-step-n"><Icon name="camera" size={18} /></span>
               <h3>Photograph the receipt</h3>
               <p>Crumpled, faded, folded — it reads them. Nothing to type.</p>
             </div>
             <div className="v2-step">
-              <span className="v2-step-n">2</span>
+              <span className="v2-step-n"><Icon name="pantry" size={18} /></span>
               <h3>Items sort themselves</h3>
               <p>Names, quantities, categories and realistic expiry dates, filled in.</p>
             </div>
             <div className="v2-step">
-              <span className="v2-step-n">3</span>
+              <span className="v2-step-n"><Icon name="clock" size={18} accent /></span>
               <h3>You get told before it&rsquo;s too late</h3>
               <p>&ldquo;Spinach goes tomorrow&rdquo; — while you can still cook it.</p>
             </div>
@@ -108,12 +110,7 @@ export default function LandingV2() {
         <p className="v2-cta-note">Free for students · no card · 60-second setup</p>
       </section>
 
-      <footer className="v2-footer">
-        <span>© {new Date().getFullYear()} Pantry Snap</span>
-        <a href="/legal/privacy.html">Privacy</a>
-        <a href="/legal/eula.html">EULA</a>
-        <a href="/legal/do-not-sell.html">Do Not Sell or Share</a>
-      </footer>
+      <SiteFooter onNavigate={(to) => startTransition(to)} />
     </div>
   );
 }
