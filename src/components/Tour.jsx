@@ -271,7 +271,7 @@ export default function Tour({ onComplete }) {
                 className="tour-step"
                 key={s.id}
                 aria-hidden={i !== step ? 'true' : undefined}
-                inert={i !== step ? '' : undefined}
+                inert={i !== step || undefined}
               >
                 <div className={`tour-illustration ${s.illustrationClass}`}>
                   {s.icon}

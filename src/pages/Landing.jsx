@@ -224,7 +224,7 @@ export default function Landing() {
         {/* Decorative parallax visual: hidden from AT and never focusable —
             the receipt's 80+ text nodes and the fake Scan button were leaking
             into the a11y tree (QA round 3). */}
-        <div className="hero-mockup-container" aria-hidden="true" inert="" style={demoOpen ? { display: 'none' } : undefined}>
+        <div className="hero-mockup-container" aria-hidden="true" inert={true} style={demoOpen ? { display: 'none' } : undefined}>
           <div className="mockup-item mockup-item-2" style={{ padding: 0 }}>
              <PixelReceipt />
           </div>

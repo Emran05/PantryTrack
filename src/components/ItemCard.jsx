@@ -179,7 +179,7 @@ export default function ItemCard({ item, onDelete, onRefresh, onPinChange }) {
       <div
         className={`item-card-swipe-action ${swiped ? 'revealed' : ''}`}
         aria-hidden={!swiped ? 'true' : undefined}
-        inert={!swiped ? '' : undefined}
+        inert={!swiped || undefined}
       >
         <button className="item-card-swipe-use" onClick={handleUseClick} aria-label="Use some">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
