@@ -50,7 +50,7 @@
 <ul>
   <li><strong>Account:</strong> email address and password (stored hashed by our auth provider, Supabase).</li>
   <li><strong>Pantry data:</strong> items you add — names, categories, quantities, expiration dates, photos you attach.</li>
-  <li><strong>Receipt scans:</strong> processed on your device. The extracted item list is stored; the receipt image itself is not uploaded.</li>
+  <li><strong>Receipt scans:</strong> we try to read the receipt on your device first. If that fails or returns too little text — a dark, blurry or crumpled photo — the <strong>receipt image is sent to Google’s Gemini API</strong> to be read instead. We do not store the image on our servers and we never sell it, but in that case it does leave your device. The extracted item list is what we store.</li>
   <li><strong>Recipes:</strong> when you request AI recipes, your current pantry item names are sent to Google's Gemini API to generate suggestions.</li>
   <li><strong>Notifications:</strong> a push token, if you enable expiry reminders.</li>
   <li><strong>Usage:</strong> feature usage, session length, device type, and approximate region.</li>
@@ -82,7 +82,7 @@
 <ul>
   <li><strong>Supabase</strong> — database, auth, realtime sync</li>
   <li><strong>Netlify</strong> — hosting and serverless functions</li>
-  <li><strong>Google Gemini API</strong> — recipe generation (receives pantry item names only, on request)</li>
+  <li><strong>Google Gemini API</strong> — receipt reading and recipe generation. Receives the <strong>receipt image</strong> when on-device reading fails, the receipt text, your pantry item names, and any diet preference you set.</li>
 </ul>
 
 <h2>Changes</h2>

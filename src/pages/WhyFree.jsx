@@ -20,7 +20,7 @@ const FAQ = [
   },
   {
     q: 'What exactly leaves my account?',
-    a: 'Item names, categories, quantities and dates — stripped of your name, email and account ID before they leave our database. Your photos, receipts, notes and shopping lists never leave.',
+    a: 'Item names, categories, quantities and dates — stripped of your name, email and account ID before they leave our database. Your notes and shopping lists are never shared. One exception worth knowing: if your phone cannot read a receipt photo, the image is sent to Google to be read. It is not stored by us and never sold, but it does leave your device.',
   },
   {
     q: 'Can a brand find out it was me?',
@@ -79,18 +79,19 @@ export default function WhyFree({ onNavigate }) {
           <h2 className="wf-h2">What leaves, and what never does</h2>
           <div className="wf-split">
             <div>
-              <h3 className="wf-h3">Leaves, de-identified</h3>
+              <h3 className="wf-h3">Leaves your device</h3>
               <ul className="wf-list">
                 <li>Item names and categories</li>
                 <li>Quantities and dates</li>
                 <li>Broad demographics you chose to give us</li>
+                <li>Unreadable receipt photos — to Google, to be read. Never sold.</li>
               </ul>
             </div>
             <div>
               <h3 className="wf-h3">Never leaves</h3>
               <ul className="wf-list wf-list-never">
                 <li>Your name, email or account ID</li>
-                <li>Receipt photos and item photos</li>
+                <li>Item photos</li>
                 <li>Notes and shopping lists</li>
                 <li>Anything that identifies you</li>
               </ul>
