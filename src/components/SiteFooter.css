@@ -73,11 +73,11 @@
   padding: 20px 0 calc(24px + env(safe-area-inset-bottom));
   border-top: 1px solid rgb(255 255 255 / 0.06);
   font-size: 0.78rem;
-  color: #6e7681;
+  color: #7d8590;
 }
 
 .sfoot__bar-note {
-  color: #565f6a;
+  color: #7d8590;
 }
 
 @media (max-width: 900px) {
