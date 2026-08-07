@@ -56,7 +56,7 @@ export default function ConsumeModal({ item, pantryId, onClose, onDone }) {
     }
     setSubmitting(true);
     try {
-      const result = await consumePantryItem(item.id, amount);
+      const result = await consumePantryItem(item.id, amount, pantryId);
 
       logConsumptionEvent(pantryId, {
         itemId: item.id,
