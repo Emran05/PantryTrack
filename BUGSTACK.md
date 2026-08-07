@@ -34,3 +34,10 @@ thereafter. Test data stays in this account's own pantry.
 - [x] **[LOW]** Auth pages are branded "Pantry Tracker" instead of "Pantry Snap" — `/login` and `/login?mode=signup`; repro: open either page and read the card heading; expected: "Pantry Snap", matching the nav wordmark, the document title, the landing copy and the receipt mockup; actual: the `<h1>` reads "Pantry Tracker". First screen after clicking any CTA, so it reads as a wrong-site / phishing cue at the exact moment trust matters most. **(FIXED d571eac)**
 
 (none yet)
+
+## Morning notes for the user
+- Authenticated QA walk is blocked on email confirmation (Gmail's link scanner
+  eats the one-time tokens). Fastest unblock: `! supabase login` in the session,
+  then I confirm the QA account via admin API in seconds. Alternative: Supabase
+  dashboard → Auth → Providers → Email → turn OFF "Confirm email" — which the
+  conversion research independently recommends for launch anyway.
