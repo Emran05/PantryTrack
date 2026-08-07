@@ -9,40 +9,21 @@
   background: #0d1117;
   color: #e6edf3;
   font-family: var(--font-family, 'Inter', system-ui, sans-serif);
-  overflow-x: hidden;
+  /* clip, NOT hidden. `overflow-x: hidden` forces overflow-y to compute to
+     `auto`, which makes this element a scroll container — and a sticky
+     descendant then sticks to a box that never scrolls, so the floating nav
+     scrolled off the page with the content. `clip` guards the same horizontal
+     bleed without creating a scrollport. */
+  overflow-x: hidden; /* fallback: pre-Safari-16 loses sticky, keeps the guard */
+  overflow-x: clip;
   /* One quiet depth layer instead of an animated aurora: a single soft
      horizon glow, static, so the page reads calm and costs nothing. */
   background-image: radial-gradient(120% 60% at 50% -10%, rgba(46, 160, 67, 0.10) 0%, transparent 60%);
 }
 
-/* ---- nav ---- */
-.v2-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  position: sticky;
-  top: 0;
-  background: rgba(13, 17, 23, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  z-index: 20;
-}
-
-.v2-logo { font-weight: 700; letter-spacing: -0.01em; }
-
-.v2-nav-actions { display: flex; align-items: center; gap: 14px; }
-
-.v2-link {
-  background: none;
-  border: none;
-  color: #8b949e;
-  font-weight: 550;
-  cursor: pointer;
-  font-size: 0.92rem;
-}
-.v2-link:hover { color: #e6edf3; }
+/* The nav lives in FloatingNav.jsx/.css. The full-bleed blurred bar that used
+   to be here is gone — see DESIGN_SYSTEM.md §3 on why a page-wide
+   backdrop-filter is the wrong shape for this. */
 
 /* ---- buttons ---- */
 .v2-btn {
