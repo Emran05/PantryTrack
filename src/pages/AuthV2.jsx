@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Icon from '../components/Icon';
 import './AuthV2.css';
@@ -19,6 +19,7 @@ import './AuthV2.css';
 
 export default function AuthV2() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -33,6 +34,31 @@ export default function AuthV2() {
   }, [location.search]);
 
   const reset = () => { setError(null); setInfo(null); };
+
+  // Switching mode has to move the URL too, or a reload silently throws the
+  // user back to whatever ?mode= said — someone who switched to log in, then
+  // refreshed, landed on signup again. Built from location.pathname so it keeps
+  // working when this page is repointed from /preview-auth to /login at ship.
+  const switchMode = (login) => {
+    setIsLogin(login);
+    reset();
+    navigate(login ? location.pathname : `${location.pathname}?mode=signup`, { replace: true });
+  };
+
+  const handleForgot = async () => {
+    reset();
+    if (!email.trim()) {
+      setError('Enter your email above and we\'ll send a reset link.');
+      return;
+    }
+    setLoading(true);
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (err) setError(err.message);
+    else setInfo('Check your email for a reset link.');
+    setLoading(false);
+  };
 
   const handleGoogle = async () => {
     reset();
@@ -160,6 +186,11 @@ export default function AuthV2() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
             />
+            {isLogin && (
+              <button type="button" className="av2-forgot" onClick={handleForgot} disabled={loading}>
+                Forgot password?
+              </button>
+            )}
           </div>
 
           {!isLogin && (
@@ -185,9 +216,9 @@ export default function AuthV2() {
 
         <div className="av2-alt">
           {isLogin ? (
-            <>New here? <button type="button" onClick={() => { setIsLogin(false); reset(); }}>Create a pantry</button></>
+            <>New here? <button type="button" onClick={() => switchMode(false)}>Create a pantry</button></>
           ) : (
-            <>Already have one? <button type="button" onClick={() => { setIsLogin(true); reset(); }}>Log in</button></>
+            <>Already have one? <button type="button" onClick={() => switchMode(true)}>Log in</button></>
           )}
         </div>
       </div>

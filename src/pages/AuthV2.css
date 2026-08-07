@@ -134,6 +134,21 @@
   box-shadow: 0 0 0 3px rgb(46 160 67 / 0.18);
 }
 
+/* Recovery sits under the field it recovers, not buried at the card's foot. */
+.av2-forgot {
+  display: block;
+  margin: 7px 0 0 auto;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #7d8590;
+  font-size: 0.79rem;
+  cursor: pointer;
+}
+
+.av2-forgot:hover:not(:disabled) { color: #c9d1d9; text-decoration: underline; }
+.av2-forgot:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* The single filled control on the page. */
 .av2-submit {
   width: 100%;
