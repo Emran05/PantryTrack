@@ -1,4 +1,5 @@
 import { useAuth } from '../contexts/AuthContext';
+import { AUTH_SIGNUP } from '../lib/redesignRoutes';
 import './SiteFooter.css';
 
 // Two bands on the page's own background, separated by a hairline — not a
@@ -18,7 +19,7 @@ export default function SiteFooter({ onNavigate }) {
   // the OLD landing page with no explanation and no way back. Signed out, send
   // the same click to signup instead: the intent behind it is exactly the one
   // worth converting.
-  const product = (to) => (user ? to : '/login?mode=signup');
+  const product = (to) => (user ? to : AUTH_SIGNUP);
 
   const go = (to) => (e) => {
     if (to.startsWith('/legal')) return; // real hrefs, let the browser handle

@@ -3,6 +3,7 @@ import FloatingNav from '../components/FloatingNav';
 import SiteFooter from '../components/SiteFooter';
 import { useAuth } from '../contexts/AuthContext';
 import { initReveals } from '../lib/reveal';
+import { AUTH_LOGIN, AUTH_SIGNUP } from '../lib/redesignRoutes';
 import './WhyFree.css';
 
 // Replaces a pricing page (DESIGN_SYSTEM.md §7). Every researched product with
@@ -45,8 +46,8 @@ export default function WhyFree({ onNavigate }) {
   return (
     <div className="wf" ref={rootRef}>
       <FloatingNav
-        onLogin={() => go('/login')}
-        onSignup={() => go('/login?mode=signup')}
+        onLogin={() => go(AUTH_LOGIN)}
+        onSignup={() => go(AUTH_SIGNUP)}
         onNavigate={(to) => (to.startsWith('#') ? null : go(to))}
       />
 
@@ -136,7 +137,7 @@ export default function WhyFree({ onNavigate }) {
 
         <section className="wf-close reveal">
           <p className="wf-close-line">Still free. Still yours to switch off.</p>
-          <button className="wf-btn wf-btn-lg" onClick={() => go('/login?mode=signup')}>
+          <button className="wf-btn wf-btn-lg" onClick={() => go(AUTH_SIGNUP)}>
             Create my pantry
           </button>
         </section>

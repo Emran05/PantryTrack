@@ -5,6 +5,7 @@ import SiteFooter from '../components/SiteFooter';
 import Icon from '../components/Icon';
 import { useTransition } from '../contexts/TransitionContext';
 import { initReveals } from '../lib/reveal';
+import { AUTH_LOGIN, AUTH_SIGNUP } from '../lib/redesignRoutes';
 import './LandingV2.css';
 
 // Redesign proposal — see DESIGN_DIRECTION.md. Reachable at /preview-landing
@@ -19,12 +20,12 @@ export default function LandingV2() {
 
   useEffect(() => initReveals(rootRef.current || document), []);
 
-  const toSignup = () => startTransition('/login?mode=signup');
+  const toSignup = () => startTransition(AUTH_SIGNUP);
 
   return (
     <div className="v2" ref={rootRef}>
       <FloatingNav
-        onLogin={() => startTransition('/login')}
+        onLogin={() => startTransition(AUTH_LOGIN)}
         onSignup={toSignup}
         onNavigate={(to) => {
           if (to.startsWith('#')) document.querySelector(`[data-anchor="${to.slice(1)}"]`)?.scrollIntoView({ behavior: 'smooth' });
