@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { usePantry } from '../contexts/PantryContext';
-import { createPantry, joinPantryById, getAreas, createArea, deleteArea, getProfile, updateProfile, getPantryItems } from '../lib/supabaseStorage';
+import { createPantry, joinPantryById, getAreas, createArea, deleteArea, getProfile, updateProfile, getPantryItems, renamePantry, leavePantry } from '../lib/supabaseStorage';
 import { useToast } from '../components/ToastContext';
 import { resetTourFlag } from '../components/Tour';
 import ThemePicker from '../components/ThemePicker';
@@ -155,6 +155,46 @@ export default function Settings() {
     } catch (err) {
       console.error(err);
       showToast('Failed to create home', 'error');
+    }
+    setLoading(false);
+  };
+
+  const handleRenameHome = async (pantry) => {
+    const next = window.prompt(`Rename "${pantry.name}" to:`, pantry.name);
+    if (next === null) return;
+    if (!next.trim() || next.trim() === pantry.name) return;
+    setLoading(true);
+    try {
+      await renamePantry(pantry.id, next.trim());
+      await refreshPantries();
+      showToast('Home renamed');
+    } catch (err) {
+      console.error('Rename failed:', err);
+      showToast('Could not rename this home', 'error');
+    }
+    setLoading(false);
+  };
+
+  const handleLeaveHome = async (pantry) => {
+    // Leaving as the last member deletes the household and its contents, so
+    // say which one is about to happen before asking.
+    const sole = pantries.length > 1;
+    if (!sole) return;
+    const ok = window.confirm(
+      `Leave "${pantry.name}"?\n\nIf you are its only member, the home and everything in it will be deleted. This cannot be undone.`
+    );
+    if (!ok) return;
+    setLoading(true);
+    try {
+      const outcome = await leavePantry(pantry.id);
+      const fresh = await refreshPantries();
+      if (pantry.id === activePantry?.id && fresh.length > 0) {
+        setActivePantryDirect(fresh[0]);
+      }
+      showToast(outcome === 'deleted' ? `"${pantry.name}" deleted` : `Left "${pantry.name}"`);
+    } catch (err) {
+      console.error('Leave failed:', err);
+      showToast(err.message?.includes('at least one') ? 'You must belong to at least one home' : 'Could not leave this home', 'error');
     }
     setLoading(false);
   };
@@ -426,15 +466,36 @@ export default function Settings() {
                   alignItems: 'center'
                 }}>
                   <span className="settings-label" style={{ color: 'inherit' }}>{p.name} {p.id === activePantry?.id && '(Active)'}</span>
-                  {p.id !== activePantry?.id && (
-                    <button 
-                      onClick={() => switchPantry(p.id)}
+                  <span style={{ display: 'flex', gap: '6px' }}>
+                    {p.id !== activePantry?.id && (
+                      <button
+                        onClick={() => switchPantry(p.id)}
+                        className="btn"
+                        style={{ padding: '6px 12px', fontSize: '0.8rem', background: 'transparent', border: '1px solid currentColor', color: 'inherit' }}
+                      >
+                        Switch
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleRenameHome(p)}
                       className="btn"
+                      aria-label={`Rename ${p.name}`}
                       style={{ padding: '6px 12px', fontSize: '0.8rem', background: 'transparent', border: '1px solid currentColor', color: 'inherit' }}
                     >
-                      Switch
+                      Rename
                     </button>
-                  )}
+                    {pantries.length > 1 && (
+                      <button
+                        onClick={() => handleLeaveHome(p)}
+                        className="btn"
+                        aria-label={`Leave ${p.name}`}
+                        disabled={loading}
+                        style={{ padding: '6px 12px', fontSize: '0.8rem', background: 'transparent', border: '1px solid currentColor', color: 'inherit' }}
+                      >
+                        Leave
+                      </button>
+                    )}
+                  </span>
                 </div>
               ))}
             </div>

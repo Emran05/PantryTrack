@@ -678,3 +678,20 @@ export async function consumePantryItems(pantryId, entries) {
     failed: settled.filter((r) => r.status === 'rejected').length,
   };
 }
+
+/** Rename a household you belong to. */
+export async function renamePantry(pantryId, name) {
+  const { error } = await supabase.rpc('rename_pantry', { p_pantry_id: pantryId, p_name: name });
+  if (error) throw error;
+}
+
+/**
+ * Leave a household. If you were its last member it is deleted along with its
+ * contents (an orphaned household is invisible but keeps holding rows).
+ * Returns 'left' or 'deleted' so the UI can say what actually happened.
+ */
+export async function leavePantry(pantryId) {
+  const { data, error } = await supabase.rpc('leave_pantry', { p_pantry_id: pantryId });
+  if (error) throw error;
+  return data;
+}
