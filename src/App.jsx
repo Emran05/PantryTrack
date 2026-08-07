@@ -14,6 +14,7 @@ import Landing from './pages/Landing';
 // anywhere; the live landing stays at '/' until the owner approves.
 const LandingV2 = lazy(() => import('./pages/LandingV2'));
 const WhyFree = lazy(() => import('./pages/WhyFree'));
+const AuthV2 = lazy(() => import('./pages/AuthV2'));
 import Auth from './pages/Auth';
 // Eager, not lazy: these render in the unauthenticated route set too, which
 // has no Suspense boundary — and deep links (recovery emails, invites) should
@@ -108,6 +109,7 @@ function AppContent() {
         <Route path="/" element={<Landing />} />
         <Route path="/preview-landing" element={<Suspense fallback={null}><LandingV2 /></Suspense>} />
         <Route path="/why-free" element={<Suspense fallback={null}><WhyFreeRoute /></Suspense>} />
+        <Route path="/preview-auth" element={<Suspense fallback={null}><AuthV2 /></Suspense>} />
         <Route path="/login" element={<Auth />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/join/:token" element={<JoinPantry />} />
