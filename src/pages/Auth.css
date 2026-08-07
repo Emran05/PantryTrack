@@ -83,8 +83,16 @@
   padding: var(--space-md) !important;
 }
 
-.auth-google-btn:hover {
+.auth-google-btn:hover:not(:disabled) {
   background-color: var(--color-bg-card-hover);
+}
+
+/* Matches .auth-submit:disabled. Without this the button reads as fully
+   available while the consent gate holds it shut, which is the same defect
+   the email submit button already had. */
+.auth-google-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .auth-form {

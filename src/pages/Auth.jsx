@@ -78,6 +78,14 @@ export default function Auth() {
   };
 
   const handleGoogleSignIn = async () => {
+    // The checkbox is the only record that this user accepted an EULA
+    // disclosing that their data is sold. `disabled` on the button is a UI
+    // affordance, not a gate — anyone can strip the attribute — so refuse here
+    // too. Log-in is exempt: an existing account already consented at signup.
+    if (!isLogin && !agreedToTerms) {
+      setError('Please agree to the terms before creating an account.');
+      return;
+    }
     setLoading(true);
     setError(null);
     setInfo(null);
@@ -139,9 +147,9 @@ export default function Auth() {
         ) : (
         <>
         <button
-          className="btn btn-secondary auth-google-btn" 
+          className="btn btn-secondary auth-google-btn"
           onClick={handleGoogleSignIn}
-          disabled={loading}
+          disabled={loading || (!isLogin && !agreedToTerms)}
           style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
