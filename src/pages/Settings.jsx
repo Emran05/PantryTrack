@@ -802,7 +802,7 @@ export default function Settings() {
           <div className="settings-card card">
             <div className="settings-row">
               <span className="settings-label">App</span>
-              <span className="settings-value">Pantry Tracker</span>
+              <span className="settings-value">Pantry Snap</span>
             </div>
             <div className="settings-row">
               <span className="settings-label">Version</span>
