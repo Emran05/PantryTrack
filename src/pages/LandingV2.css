@@ -1,0 +1,234 @@
+/* Landing redesign — utilitarian with warmth.
+   Deliberately NOT: gradient blob fields, 6rem display type, feature-claim
+   bento grids. The product carries the page; type stays at reading scale. */
+
+.v2 {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100svh;
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: var(--font-family, 'Inter', system-ui, sans-serif);
+  overflow-x: hidden;
+  /* One quiet depth layer instead of an animated aurora: a single soft
+     horizon glow, static, so the page reads calm and costs nothing. */
+  background-image: radial-gradient(120% 60% at 50% -10%, rgba(46, 160, 67, 0.10) 0%, transparent 60%);
+}
+
+/* ---- nav ---- */
+.v2-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  position: sticky;
+  top: 0;
+  background: rgba(13, 17, 23, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 20;
+}
+
+.v2-logo { font-weight: 700; letter-spacing: -0.01em; }
+
+.v2-nav-actions { display: flex; align-items: center; gap: 14px; }
+
+.v2-link {
+  background: none;
+  border: none;
+  color: #8b949e;
+  font-weight: 550;
+  cursor: pointer;
+  font-size: 0.92rem;
+}
+.v2-link:hover { color: #e6edf3; }
+
+/* ---- buttons ---- */
+.v2-btn {
+  background: #2ea043;
+  color: #fff;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-weight: 650;
+  font-size: 0.98rem;
+  padding: 12px 20px;
+  min-height: 46px;
+  cursor: pointer;
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+.v2-btn:hover { background: #3fb950; transform: translateY(-1px); }
+.v2-btn-sm { padding: 8px 14px; min-height: 38px; font-size: 0.9rem; }
+.v2-btn-lg { padding: 15px 28px; min-height: 52px; font-size: 1.05rem; }
+
+/* ---- hero ---- */
+.v2-hero {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 72px 24px 80px;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 56px;
+  align-items: center;
+}
+
+.v2-h1 {
+  /* Reading scale, not display scale — the product is the spectacle. */
+  font-size: clamp(1.9rem, 3.4vw, 2.6rem);
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  margin: 0 0 16px;
+}
+
+.v2-h1-dim { color: #8b949e; }
+
+.v2-sub {
+  font-size: 1.02rem;
+  line-height: 1.6;
+  color: #adbac7;
+  margin: 0 0 20px;
+  max-width: 46ch;
+}
+
+.v2-points {
+  list-style: none;
+  margin: 0 0 26px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.v2-points li {
+  position: relative;
+  padding-left: 24px;
+  color: #c9d1d9;
+  font-size: 0.94rem;
+}
+
+.v2-points li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 0.55em;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  background: #2ea043;
+}
+
+.v2-cta-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+
+.v2-cta-note { font-size: 0.84rem; color: #6e7681; }
+
+.v2-hero-demo { display: flex; justify-content: center; }
+
+/* ---- sections ---- */
+.v2-section { padding: 72px 24px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+.v2-section-alt { background: rgba(255, 255, 255, 0.015); }
+.v2-section-inner { max-width: 1120px; margin: 0 auto; }
+
+.v2-h2 {
+  font-size: clamp(1.4rem, 2.2vw, 1.8rem);
+  font-weight: 680;
+  letter-spacing: -0.015em;
+  margin: 0 0 28px;
+}
+
+.v2-body { color: #adbac7; line-height: 1.65; margin: 0 0 14px; max-width: 52ch; }
+.v2-muted { color: #7d8590; font-size: 0.94rem; }
+
+.v2-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+
+.v2-step h3 { font-size: 1rem; font-weight: 650; margin: 10px 0 6px; }
+.v2-step p { color: #8b949e; font-size: 0.92rem; line-height: 1.55; margin: 0; }
+
+.v2-step-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: rgba(46, 160, 67, 0.14);
+  color: #3fb950;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.v2-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: center;
+}
+
+/* Activity feed: shows the shared-kitchen mechanism instead of claiming it */
+.v2-feed {
+  list-style: none;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.v2-feed li {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 10px 8px;
+  font-size: 0.9rem;
+  color: #adbac7;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.v2-feed li:last-child { border-bottom: none; }
+.v2-feed strong { color: #e6edf3; font-weight: 600; }
+.v2-feed-who { color: #3fb950; font-weight: 650; }
+.v2-feed-when { margin-left: auto; color: #6e7681; font-size: 0.78rem; }
+
+/* ---- close ---- */
+.v2-close {
+  text-align: center;
+  padding: 88px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.v2-close .v2-h2 { margin-bottom: 22px; }
+.v2-close .v2-cta-note { display: block; margin-top: 14px; }
+
+/* ---- footer ---- */
+.v2-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px;
+  padding: 26px 20px calc(26px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 0.8rem;
+  color: #6e7681;
+}
+.v2-footer a { color: #8b949e; text-decoration: none; }
+.v2-footer a:hover { color: #c9d1d9; text-decoration: underline; }
+
+/* ---- mobile: product first, copy second ---- */
+@media (max-width: 900px) {
+  .v2-hero {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    padding: 40px 20px 56px;
+  }
+  /* The pantry leads on phones — it explains the product faster than words. */
+  .v2-hero-demo { order: -1; }
+  .v2-steps { grid-template-columns: 1fr; gap: 22px; }
+  .v2-split { grid-template-columns: 1fr; gap: 28px; }
+  .v2-section { padding: 52px 20px; }
+  .v2-close { padding: 60px 20px; }
+}

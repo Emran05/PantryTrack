@@ -10,6 +10,9 @@ import BottomNav from './components/BottomNav';
 import Tour, { isTourCompleted } from './components/Tour';
 import WhatsNew, { shouldShowWhatsNew, markWhatsNewSeen } from './components/WhatsNew';
 import Landing from './pages/Landing';
+// Redesign proposal, reachable at /preview-landing only. Not linked from
+// anywhere; the live landing stays at '/' until the owner approves.
+const LandingV2 = lazy(() => import('./pages/LandingV2'));
 import Auth from './pages/Auth';
 // Eager, not lazy: these render in the unauthenticated route set too, which
 // has no Suspense boundary — and deep links (recovery emails, invites) should
@@ -97,6 +100,7 @@ function AppContent() {
     return (
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/preview-landing" element={<Suspense fallback={null}><LandingV2 /></Suspense>} />
         <Route path="/login" element={<Auth />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/join/:token" element={<JoinPantry />} />
