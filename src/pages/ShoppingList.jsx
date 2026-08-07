@@ -66,9 +66,13 @@ export function parseVoiceTranscript(text) {
 function VoiceMicButton({ onTranscript, onError }) {
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef(null);
+  const watchdogRef = useRef(null);
 
   // Stop any in-flight recognition if the page unmounts mid-listen.
-  useEffect(() => () => recognitionRef.current?.abort?.(), []);
+  useEffect(() => () => {
+    clearTimeout(watchdogRef.current);
+    recognitionRef.current?.abort?.();
+  }, []);
 
   if (!SpeechRecognitionImpl) return null;
 
@@ -84,11 +88,30 @@ function VoiceMicButton({ onTranscript, onError }) {
       if (e.error !== 'aborted' && e.error !== 'no-speech') onError(e.error);
     };
     recognitionRef.current = r;
-    r.start();
+    try {
+      r.start();
+    } catch (err) {
+      // start() throws if recognition is already running, or when the
+      // permission prompt is dismissed — without this the button would sit
+      // in "listening" forever (QA finding).
+      console.error('Speech recognition failed to start:', err);
+      onError('start-failed');
+      return;
+    }
     setListening(true);
+    // Some browsers never fire onend/onerror when the mic is blocked at the
+    // OS level; this releases the UI instead of stranding it mid-listen.
+    clearTimeout(watchdogRef.current);
+    watchdogRef.current = setTimeout(() => {
+      if (recognitionRef.current === r) {
+        r.abort?.();
+        setListening(false);
+      }
+    }, 15000);
   };
 
   const stop = () => {
+    clearTimeout(watchdogRef.current);
     recognitionRef.current?.stop();
     setListening(false);
   };
