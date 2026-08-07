@@ -5,8 +5,11 @@
 
 import { supabase } from './supabase';
 
-// sessionStorage key holding an invite token seen while signed out; App.jsx
-// resumes the join after login.
+// localStorage key holding an invite token seen while signed out; App.jsx
+// resumes the join after login. localStorage, not sessionStorage: the
+// email-confirmation signup path opens a NEW tab, and the invite must
+// survive that hop. Tokens expire server-side (7 days), so a stale
+// leftover just fails the redeem cleanly.
 export const PENDING_INVITE_KEY = 'pantry_pending_invite';
 
 export function isMissingInviteSchema(error) {

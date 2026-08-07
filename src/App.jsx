@@ -52,7 +52,7 @@ function AppContent() {
     if (!user || loading) return;
     let pending = null;
     try {
-      pending = sessionStorage.getItem(PENDING_INVITE_KEY);
+      pending = localStorage.getItem(PENDING_INVITE_KEY);
     } catch {
       return;
     }

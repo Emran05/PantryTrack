@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { supabase, BOOT_HASH, BOOT_SEARCH } from '../lib/supabase';
 import { useToast } from '../components/ToastContext';
 import './Auth.css';
 
@@ -22,9 +22,14 @@ export default function ResetPassword() {
   const [email, setEmail] = useState('');
 
   useEffect(() => {
-    // The recovery hash is present on the initial navigation from the email.
+    // supabase-js consumes the recovery markers from the URL during its own
+    // module-load exchange — usually BEFORE this component mounts — so check
+    // the boot-time snapshot as well as whatever is still in the address bar.
     const hash = window.location.hash || '';
-    const hashLooksLikeRecovery = /type=recovery/.test(hash);
+    const hashLooksLikeRecovery =
+      /type=recovery/.test(hash) ||
+      /type=recovery/.test(BOOT_HASH) ||
+      /[?&]code=/.test(BOOT_SEARCH); // PKCE-style recovery link
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {

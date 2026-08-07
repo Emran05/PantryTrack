@@ -89,12 +89,13 @@ export default function AddEditItem() {
         async (decodedText) => {
           try { await scannerInstance.clear(); } catch (_) {}
           scannerInstance = null;
-          setScanning(false);
-          if (aborted) return;
+          // Look up the product BEFORE toggling scanning off — setScanning(false)
+          // re-runs this effect's cleanup, which flips `aborted` and would
+          // otherwise discard every successful scan.
           try {
             const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${decodedText}`);
-            if (aborted) return;
             const data = await res.json();
+            if (aborted) return;
             if (data.status === 1 && data.product) {
               setForm(prev => ({ ...prev, name: data.product.product_name || prev.name }));
               showToast(`Found: ${data.product.product_name}`);
@@ -104,6 +105,8 @@ export default function AddEditItem() {
           } catch (e) {
             console.error(e);
             if (!aborted) showToast('Error looking up product', 'error');
+          } finally {
+            if (!aborted) setScanning(false);
           }
         },
         () => {} // Ignore scan errors per frame

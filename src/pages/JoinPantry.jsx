@@ -34,7 +34,7 @@ export default function JoinPantry() {
     // to /join on every navigation — an inescapable loop. The token still lives
     // in the URL, so this redeem proceeds normally.
     try {
-      sessionStorage.removeItem(PENDING_INVITE_KEY);
+      localStorage.removeItem(PENDING_INVITE_KEY);
     } catch {
       // ignore
     }
@@ -70,7 +70,7 @@ export default function JoinPantry() {
   useEffect(() => {
     if (!authLoading && !user) {
       try {
-        sessionStorage.setItem(PENDING_INVITE_KEY, token);
+        localStorage.setItem(PENDING_INVITE_KEY, token);
       } catch {
         // ignore
       }
