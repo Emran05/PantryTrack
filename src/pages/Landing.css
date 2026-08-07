@@ -27,6 +27,14 @@
   backdrop-filter: blur(3px);
 }
 
+@media (max-width: 900px) {
+  /* The white receipt mockup scrolls directly behind the header on mobile —
+     a solid scrim keeps "Log In" legible over it (QA finding). */
+  .landing-nav {
+    background: rgba(0, 0, 0, 0.72);
+  }
+}
+
 .landing-logo {
   font-size: 1.5rem;
   font-weight: 800;
@@ -275,10 +283,12 @@
 .hero-rotator span:nth-child(3) { animation-delay: 6s; }
 .hero-rotator span:nth-child(4) { animation-delay: 9s; }
 
+/* Windows overlap: A fades out (25-31%) while B fades in (starts at 25%),
+   so the headline is never left dangling on the em-dash (QA finding). */
 @keyframes rotator-cycle {
-  0%, 3% { opacity: 0; transform: translateY(0.35em); }
-  6%, 22% { opacity: 1; transform: translateY(0); }
-  27%, 100% { opacity: 0; transform: translateY(-0.35em); }
+  0% { opacity: 0; transform: translateY(0.35em); }
+  6%, 25% { opacity: 1; transform: translateY(0); }
+  31%, 100% { opacity: 0; transform: translateY(-0.35em); }
 }
 
 @media (prefers-reduced-motion: reduce) {
