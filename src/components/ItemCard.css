@@ -86,6 +86,11 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* The card slides left to reveal its actions, which pushed the item's own
+     name off the container edge — you could no longer see WHAT you were about
+     to Use/List/Delete (QA finding). Counter-shift keeps the name anchored. */
+  transform: translateX(var(--swipe-offset, 0px));
+  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .item-card-meta {

@@ -24,6 +24,12 @@ export default function ItemCard({ item, onDelete, onRefresh, onPinChange }) {
   // reading the same pre-refetch value. Resynced when the prop catches up.
   const pendingQty = useRef(null);
   if (pendingQty.current === item.quantity) pendingQty.current = null;
+  // Optimistic display: the write + refetch takes ~500ms, during which the
+  // old number sitting still reads as "my tap didn't register" (QA finding).
+  const [optimisticQty, setOptimisticQty] = useState(null);
+  // Server caught up (or another device changed it) — drop the local guess.
+  if (optimisticQty !== null && optimisticQty === item.quantity) setOptimisticQty(null);
+  const shownQty = optimisticQty ?? item.quantity;
   const [swiped, setSwiped] = useState(false);
   const [offset, setOffset] = useState(0);
   const [showConsume, setShowConsume] = useState(false);
@@ -110,6 +116,7 @@ export default function ItemCard({ item, onDelete, onRefresh, onPinChange }) {
     const newQty = Math.max(1, base + delta);
     if (newQty === base) return; // Already at minimum
     pendingQty.current = newQty;
+    setOptimisticQty(newQty); // paint immediately; reconciled below
     try {
       await updatePantryItem(item.id, { quantity: newQty });
       if (onRefresh) onRefresh();
@@ -125,6 +132,7 @@ export default function ItemCard({ item, onDelete, onRefresh, onPinChange }) {
       // it — so a failed write can't poison every subsequent tap (and then
       // silently clobber a housemate's concurrent edit with a stale base).
       if (pendingQty.current === newQty) pendingQty.current = null;
+      setOptimisticQty(null); // failed write: fall back to the server's value
       if (onRefresh) onRefresh();
       showToast('Failed to update quantity', 'error');
     }
@@ -208,7 +216,7 @@ export default function ItemCard({ item, onDelete, onRefresh, onPinChange }) {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        style={{ transform: `translateX(-${offset}px)`, transition: offset === 0 || swiped ? 'transform 250ms cubic-bezier(0.16, 1, 0.3, 1)' : 'none' }}
+        style={{ transform: `translateX(-${offset}px)`, '--swipe-offset': `${offset}px`, transition: offset === 0 || swiped ? 'transform 250ms cubic-bezier(0.16, 1, 0.3, 1)' : 'none' }}
       >
         <button
           className={`item-card-pin ${pinned ? 'pinned' : ''}`}
@@ -233,7 +241,7 @@ export default function ItemCard({ item, onDelete, onRefresh, onPinChange }) {
           </div>
           <div className="item-card-qty">
             <button className="item-qty-btn" onClick={(e) => handleQtyChange(e, -1)} aria-label="Decrease">−</button>
-            <span className="item-card-qty-value">{item.quantity}</span>
+            <span className="item-card-qty-value">{shownQty}</span>
             <button className="item-qty-btn" onClick={(e) => handleQtyChange(e, 1)} aria-label="Increase">+</button>
             <span className="item-card-qty-unit">{item.unit}</span>
           </div>
