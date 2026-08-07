@@ -17,6 +17,7 @@ import Auth from './pages/Auth';
 import ResetPassword from './pages/ResetPassword';
 import JoinPantry from './pages/JoinPantry';
 import { PENDING_INVITE_KEY } from './lib/invites';
+import ErrorBoundary from './components/ErrorBoundary';
 import './components/Toast.css';
 
 // Lazy-loaded pages for code splitting (authenticated routes only)
@@ -40,7 +41,7 @@ function PageTransitionWrapper({ children }) {
 
 function AppContent() {
   const { user } = useAuth();
-  const { loading } = usePantry();
+  const { loading, error: pantryError, pantries, retryPantries } = usePantry();
   const location = useLocation();
   const navigate = useNavigate();
   const [showTour, setShowTour] = useState(false);
@@ -117,6 +118,18 @@ function AppContent() {
     );
   }
 
+  // Pantry load/create failed and we have nothing to show — say so instead of
+  // leaving every page on a spinner that never resolves.
+  if (pantryError && pantries.length === 0) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '24px', textAlign: 'center' }}>
+        <p style={{ margin: 0, fontWeight: 600 }}>Couldn&rsquo;t load your homes</p>
+        <p style={{ margin: 0, fontSize: '0.9rem', opacity: 0.7 }}>Check your connection and try again.</p>
+        <button className="btn btn-primary" onClick={retryPantries} style={{ marginTop: '8px' }}>Retry</button>
+      </div>
+    );
+  }
+
   return (
     <>
       <Header />
@@ -153,16 +166,18 @@ export default function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      <PantryProvider>
-        <BrowserRouter>
-          <TransitionProvider>
-            <ToastProvider>
-              <AppContent />
-            </ToastProvider>
-          </TransitionProvider>
-        </BrowserRouter>
-      </PantryProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <PantryProvider>
+          <BrowserRouter>
+            <TransitionProvider>
+              <ToastProvider>
+                <AppContent />
+              </ToastProvider>
+            </TransitionProvider>
+          </BrowserRouter>
+        </PantryProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

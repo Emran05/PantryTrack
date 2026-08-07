@@ -100,7 +100,9 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         }
         return response;
-      }).catch(() => cached);
+      // Never resolve respondWith() to undefined — with no cached copy the
+      // browser must see a real network error, not a silent empty response.
+      }).catch(() => cached || Response.error());
 
       return cached || fetchPromise;
     })

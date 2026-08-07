@@ -16,18 +16,22 @@ export function PantryProvider({ children }) {
   const [pantries, setPantries] = useState([]);
   const [activePantry, setActivePantry] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [retryTick, setRetryTick] = useState(0);
 
   useEffect(() => {
     if (!user) {
       setPantries([]);
       setActivePantry(null);
       setLoading(false);
+      setError(null);
       return;
     }
 
     async function fetchPantries() {
       try {
         setLoading(true);
+        setError(null);
         let data = await getUserPantries();
 
         if (data.length === 0 && !defaultPantryBeingCreated) {
@@ -48,13 +52,17 @@ export function PantryProvider({ children }) {
         }
       } catch (error) {
         console.error('Error fetching pantries:', error);
+        setError(error);
       } finally {
         setLoading(false);
       }
     }
 
     fetchPantries();
-  }, [user]);
+  }, [user, retryTick]);
+
+  // Surface a Retry to the UI instead of a silent forever-spinner.
+  const retryPantries = () => setRetryTick(t => t + 1);
 
   const switchPantry = (pantryId) => {
     const found = pantries.find(p => p.id === pantryId);
@@ -91,7 +99,7 @@ export function PantryProvider({ children }) {
   };
 
   return (
-    <PantryContext.Provider value={{ pantries, activePantry, switchPantry, setActivePantryDirect, refreshPantries, loading }}>
+    <PantryContext.Provider value={{ pantries, activePantry, switchPantry, setActivePantryDirect, refreshPantries, loading, error, retryPantries }}>
       {children}
     </PantryContext.Provider>
   );

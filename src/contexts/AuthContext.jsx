@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { ensureProfileFromMetadata } from '../lib/supabaseStorage';
 import { syncUserPreferences } from '../lib/preferences';
@@ -10,31 +10,55 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const lastSyncedUserId = useRef(null);
 
   useEffect(() => {
-    // Check active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const u = session?.user ?? null;
-      setUser(u);
-      setLoading(false);
-      if (u) {
+    // supabase-js fires SIGNED_IN on every return-to-foreground, not just real
+    // logins. Two consequences handled here: keep the user object reference
+    // stable when the identity hasn't changed (a fresh object would remount
+    // the whole authenticated tree and wipe in-progress forms), and run the
+    // profile/preferences sync only when the actual account changes.
+    const applyUser = (u) => {
+      setUser(prev => (prev?.id === u?.id ? prev : u));
+      if (u && u.id !== lastSyncedUserId.current) {
+        lastSyncedUserId.current = u.id;
         ensureProfileFromMetadata(u);
         syncUserPreferences();
       }
-    });
+      if (!u) lastSyncedUserId.current = null;
+    };
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      const u = session?.user ?? null;
-      setUser(u);
-      if (u) {
-        ensureProfileFromMetadata(u);
-        // Only on a real sign-in — not on every token refresh.
-        if (event === 'SIGNED_IN') syncUserPreferences();
+    // The initial session check must never strand the splash: failures and
+    // hangs both resolve to "not signed in" instead of a forever-blank screen.
+    let settled = false;
+    const watchdog = setTimeout(() => {
+      if (!settled) {
+        console.error('getSession() did not settle within 8s — rendering app anyway');
+        setLoading(false);
       }
+    }, 8000);
+
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => applyUser(session?.user ?? null))
+      .catch((err) => {
+        console.error('getSession failed:', err);
+        setUser(null);
+      })
+      .finally(() => {
+        settled = true;
+        clearTimeout(watchdog);
+        setLoading(false);
+      });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      applyUser(session?.user ?? null);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      settled = true;
+      clearTimeout(watchdog);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = useCallback(async () => {
