@@ -508,7 +508,7 @@ export default function Settings() {
               <input 
                 type="text" 
                 placeholder="New home name..."
-                aria-label="Name for the new home" 
+                id="new-home-name" name="new-home-name" aria-label="Name for the new home" 
                 value={newHomeName}
                 onChange={e => setNewHomeName(e.target.value)}
                 style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}
@@ -634,7 +634,7 @@ export default function Settings() {
               <input
                 type="text"
                 placeholder="Paste Home ID..."
-                aria-label="Home ID to join"
+                id="join-home-id" name="join-home-id" aria-label="Home ID to join"
                 value={joinHomeId}
                 onChange={e => setJoinHomeId(e.target.value)}
                 style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', fontFamily: 'monospace', fontSize: '0.85rem' }}
@@ -678,7 +678,7 @@ export default function Settings() {
                 <input 
                   type="text" 
                   placeholder="New area name..."
-                aria-label="Name for the new area" 
+                id="new-area-name" name="new-area-name" aria-label="Name for the new area" 
                   value={newAreaName}
                   onChange={e => setNewAreaName(e.target.value)}
                   style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}
@@ -777,7 +777,7 @@ export default function Settings() {
               <input
                 type="password"
                 placeholder={userKeySet ? 'Replace existing key…' : 'Paste your Gemini API key'}
-                aria-label="Gemini API key"
+                id="gemini-api-key" name="gemini-api-key" aria-label="Gemini API key"
                 autoComplete="off"
                 value={aiKeyInput}
                 onChange={(e) => setAiKeyInput(e.target.value)}
