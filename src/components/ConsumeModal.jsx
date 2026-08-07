@@ -13,7 +13,9 @@ const REASONS = [
 export default function ConsumeModal({ item, pantryId, onClose, onDone }) {
   const { showToast } = useToast();
   // Default to consuming everything — most common case ("I finished it").
-  const [amount, setAmount] = useState(item.quantity);
+  // Default to one unit, not the whole stock — the control says "Use some",
+  // and defaulting to "all" makes the destructive choice the easy one.
+  const [amount, setAmount] = useState(Math.min(1, item.quantity));
   const [reason, setReason] = useState('used');
   const [restock, setRestock] = useState(false);
   const [submitting, setSubmitting] = useState(false);
