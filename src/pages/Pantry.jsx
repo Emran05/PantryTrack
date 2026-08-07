@@ -59,6 +59,11 @@ export default function Pantry() {
       // pantry's contents flash before the fresh fetch lands.
       setItems([]);
       refresh().finally(() => setLoading(false));
+    } else {
+      // No pantry (load failed or none yet) — an empty state beats a
+      // spinner that can never resolve.
+      setItems([]);
+      setLoading(false);
     }
   }, [activePantry, refresh]);
 

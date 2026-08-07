@@ -59,7 +59,9 @@ export function PantryProvider({ children }) {
     }
 
     fetchPantries();
-  }, [user, retryTick]);
+    // user?.id, not user: token refreshes swap the session object but not the
+    // identity — pantries only depend on WHO is signed in.
+  }, [user?.id, retryTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Surface a Retry to the UI instead of a silent forever-spinner.
   const retryPantries = () => setRetryTick(t => t + 1);

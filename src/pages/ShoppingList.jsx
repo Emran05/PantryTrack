@@ -140,6 +140,9 @@ export default function ShoppingList() {
       setLoading(true);
       setItems([]);
       refresh().finally(() => setLoading(false));
+    } else {
+      setItems([]);
+      setLoading(false);
     }
   }, [activePantry, refresh]);
 

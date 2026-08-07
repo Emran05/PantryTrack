@@ -20,6 +20,10 @@ export default function ItemCard({ item, onDelete, onRefresh, onPinChange }) {
   const cardRef = useRef(null);
   const startX = useRef(0);
   const currentX = useRef(0);
+  // Last tapped quantity, so bursts of +/- taps compound instead of all
+  // reading the same pre-refetch value. Resynced when the prop catches up.
+  const pendingQty = useRef(null);
+  if (pendingQty.current === item.quantity) pendingQty.current = null;
   const [swiped, setSwiped] = useState(false);
   const [offset, setOffset] = useState(0);
   const [showConsume, setShowConsume] = useState(false);
@@ -99,8 +103,13 @@ export default function ItemCard({ item, onDelete, onRefresh, onPinChange }) {
 
   const handleQtyChange = async (e, delta) => {
     e.stopPropagation();
-    const newQty = Math.max(1, item.quantity + delta);
-    if (newQty === item.quantity) return; // Already at minimum
+    // Build on the last TAP, not the last fetch — item.quantity only updates
+    // after a full refetch, so rapid taps would otherwise all read the same
+    // stale base and collapse into a single change.
+    const base = pendingQty.current ?? item.quantity;
+    const newQty = Math.max(1, base + delta);
+    if (newQty === base) return; // Already at minimum
+    pendingQty.current = newQty;
     try {
       await updatePantryItem(item.id, { quantity: newQty });
       if (onRefresh) onRefresh();

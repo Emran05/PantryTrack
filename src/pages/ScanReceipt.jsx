@@ -143,6 +143,13 @@ export default function ScanReceipt() {
           expirationDate: item.expiration_date || getDefaultExpirationDate(category, item.shelfLifeDays),
         };
       });
+      if (enriched.length === 0) {
+        // Success with zero items would render photo-with-no-buttons — surface
+        // it through the existing error banner (which offers Try Again).
+        clearPendingScan();
+        setScanError({ code: 'NO_ITEMS', message: "Couldn't find any grocery items on that photo — try a clearer shot or a different receipt." });
+        return;
+      }
       setParsedItems(enriched);
       // Persist the parsed list — now a refresh would resume straight to review.
       writePendingScan({ parsedItems: enriched });
@@ -254,7 +261,7 @@ export default function ScanReceipt() {
   };
 
   const handleConfirm = async () => {
-    if (!activePantry) return;
+    if (!activePantry || isProcessing) return; // reentrancy: double-tap = double import
 
     setIsProcessing(true);
     const selected = parsedItems.filter((item) => item._selected && item.name.trim());
@@ -498,11 +505,11 @@ export default function ScanReceipt() {
               <button
                 className="btn btn-primary btn-full btn-lg"
                 onClick={handleConfirm}
-                disabled={selectedCount === 0}
+                disabled={selectedCount === 0 || isProcessing}
               >
-                Add {selectedCount} item{selectedCount !== 1 ? 's' : ''} to Pantry
+                {isProcessing ? 'Adding…' : `Add ${selectedCount} item${selectedCount !== 1 ? 's' : ''} to Pantry`}
               </button>
-              <button className="btn btn-secondary btn-full" onClick={handleScanAgain}>
+              <button className="btn btn-secondary btn-full" onClick={handleScanAgain} disabled={isProcessing}>
                 Scan Again
               </button>
             </div>

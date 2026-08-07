@@ -62,7 +62,15 @@ export default function AddEditItem() {
         }
       } catch (err) {
         console.error('Failed to load item or areas', err);
-        if (!cancelled) showToast('Failed to load item', 'error');
+        if (!cancelled) {
+          showToast('Failed to load item', 'error');
+          // A blank Edit form would silently overwrite the real item on
+          // save — leave rather than offer a destructive default form.
+          if (isEditing) {
+            navigate('/', { replace: true });
+            return;
+          }
+        }
       }
       if (!cancelled) setLoading(false);
     }

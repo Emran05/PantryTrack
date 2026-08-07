@@ -14,6 +14,7 @@ export default function Recipes() {
   const { activePantry } = usePantry();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [aiRecipes, setAiRecipes] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -30,6 +31,7 @@ export default function Recipes() {
     if (!activePantry) return;
     const seq = ++fetchSeqRef.current;
     setLoading(true);
+    setLoadError(false);
     try {
       const data = await getPantryItems(activePantry.id);
       if (seq !== fetchSeqRef.current) return;
@@ -37,6 +39,7 @@ export default function Recipes() {
     } catch (err) {
       if (seq !== fetchSeqRef.current) return;
       console.error('Failed to load items for recipes', err);
+      setLoadError(true);
     } finally {
       if (seq === fetchSeqRef.current) setLoading(false);
     }
@@ -220,7 +223,9 @@ export default function Recipes() {
       )}
 
       {/* AI Error — different copy per error code */}
-      {aiError && !isUsingAI && !aiLoading && (() => {
+      {/* Shown even when previous AI results exist — a failed regenerate must
+          never be silent (rate limits and bad keys especially). */}
+      {aiError && !aiLoading && (() => {
         if (aiError.code === 'NO_API_KEY') {
           return (
             <Link to="/settings" className="ai-retry-banner animate-fade-in" style={{ display: 'flex', textDecoration: 'none' }}>
@@ -301,7 +306,17 @@ export default function Recipes() {
 
       {/* Recipe Cards */}
       <div className="recipes-list">
-        {dietFiltered.length > 0 ? (
+        {loading && items.length === 0 ? (
+          <div className="ai-loading-banner animate-fade-in">
+            <span className="scan-spinner" />
+            <span>Loading your pantry…</span>
+          </div>
+        ) : loadError && items.length === 0 ? (
+          <div className="ai-retry-banner animate-fade-in">
+            <span>Couldn&rsquo;t load your pantry — recipes need it.</span>
+            <button className="btn btn-secondary" onClick={fetchItems}>Retry</button>
+          </div>
+        ) : dietFiltered.length > 0 ? (
           <>
             {favorites.length > 0 && (
               <>
