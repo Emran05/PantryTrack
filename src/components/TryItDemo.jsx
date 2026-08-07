@@ -16,7 +16,7 @@ const SAMPLE_RECEIPT = [
 ];
 
 const PARSED = [
-  { name: 'Oat milk', qty: 1, cat: 'Dairy', expiry: '7d left', urgent: false },
+  { name: 'Oat milk', qty: 1, cat: 'Drinks', expiry: '7d left', urgent: false },
   { name: 'Eggs', qty: 12, cat: 'Dairy', expiry: '21d left', urgent: false },
   { name: 'Spinach', qty: 1, cat: 'Produce', expiry: '5d left', urgent: true },
   { name: 'Spaghetti', qty: 1, cat: 'Pantry', expiry: '1y+', urgent: false },

@@ -534,6 +534,48 @@
   100% { transform: scale(1) translateY(0); opacity: 1; }
 }
 
+.theme-swatches {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 18px;
+  flex: 1;
+  align-content: start;
+}
+
+.theme-swatches span {
+  display: flex;
+  align-items: flex-end;
+  padding: 10px 12px;
+  min-height: 84px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #eee;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.landing-legal-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+  font-size: 0.8rem;
+  color: #666;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.landing-legal-bar a {
+  color: #888;
+  text-decoration: none;
+}
+
+.landing-legal-bar a:hover {
+  color: #ccc;
+  text-decoration: underline;
+}
+
 /* Mobile sticky CTA — hidden on desktop, slides up once the hero CTA leaves. */
 .sticky-cta-bar {
   display: none;

@@ -21,6 +21,15 @@ export default function Landing() {
   const [showStickyCta, setShowStickyCta] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
 
+  // The demo mounts below the fold — without this, tapping "Try it live" just
+  // makes the button vanish (QA round-3 HIGH). Bring the demo to the user.
+  useEffect(() => {
+    if (!demoOpen) return;
+    const el = document.querySelector('.try-demo-wrap');
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' });
+  }, [demoOpen]);
+
   const scrollToStory = () => {
     document.querySelector('.scroll-story')?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -212,7 +221,10 @@ export default function Landing() {
           </div>
         )}
 
-        <div className="hero-mockup-container" style={demoOpen ? { display: 'none' } : undefined}>
+        {/* Decorative parallax visual: hidden from AT and never focusable —
+            the receipt's 80+ text nodes and the fake Scan button were leaking
+            into the a11y tree (QA round 3). */}
+        <div className="hero-mockup-container" aria-hidden="true" inert="" style={demoOpen ? { display: 'none' } : undefined}>
           <div className="mockup-item mockup-item-2" style={{ padding: 0 }}>
              <PixelReceipt />
           </div>
@@ -260,6 +272,12 @@ export default function Landing() {
              <div className="bento-bg"></div>
              <h3>Curated Themes</h3>
              <p>Midnight, Arctic, Lavender, or Sunset. Personalize the look to match your kitchen's vibe.</p>
+             <div className="theme-swatches" aria-hidden="true">
+               <span style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>Midnight</span>
+               <span style={{ background: 'linear-gradient(135deg, #dbeafe, #93c5fd)', color: '#1e3a5f' }}>Arctic</span>
+               <span style={{ background: 'linear-gradient(135deg, #4c1d95, #7c3aed)' }}>Lavender</span>
+               <span style={{ background: 'linear-gradient(135deg, #7c2d12, #ea580c)' }}>Sunset</span>
+             </div>
           </div>
           <div className="bento-card reveal" style={{ '--i': 2 }}>
              <div className="bento-bg"></div>
@@ -290,6 +308,15 @@ export default function Landing() {
           </div>
         </div>
       </footer>
+
+      {/* Legal links must exist on the page itself — signup asks visitors to
+          consent to these exact documents (QA round 3). */}
+      <div className="landing-legal-bar">
+        <span>© {new Date().getFullYear()} Pantry Snap</span>
+        <a href="/legal/privacy.html">Privacy</a>
+        <a href="/legal/eula.html">EULA</a>
+        <a href="/legal/do-not-sell.html">Do Not Sell or Share</a>
+      </div>
 
       {/* Mobile: primary CTA follows once the hero's scrolls away (research:
           sticky bottom CTA bars measure +15-25% on conversion). */}

@@ -128,9 +128,12 @@
 }
 
 .consent-label input[type='checkbox'] {
-  width: auto;
+  /* 24px meets the WCAG 2.2 AA target size — the 13px UA default read as an
+     afterthought on an otherwise designed card (QA round 3). */
+  width: 24px;
+  height: 24px;
   padding: 0;
-  margin-top: 3px;
+  margin-top: 0;
   flex-shrink: 0;
   accent-color: #22c55e;
 }
