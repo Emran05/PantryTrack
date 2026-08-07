@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import './Tour.css';
 
 // ─── Tour Step Definitions ──────────────────────────────────────────────────
@@ -177,6 +177,10 @@ export function resetTourFlag() {
 export default function Tour({ onComplete }) {
   const [step, setStep] = useState(0);
   const [exiting, setExiting] = useState(false);
+  // Move focus into the dialog so screen readers announce it and Tab
+  // stays inside instead of walking the page behind (QA finding).
+  const overlayRef = useRef(null);
+  useEffect(() => { overlayRef.current?.focus(); }, []);
 
   const totalSteps = STEPS.length;
   const isFirst = step === 0;
@@ -238,10 +242,12 @@ export default function Tour({ onComplete }) {
 
   return (
     <div
+      ref={overlayRef}
       className={`tour-overlay ${exiting ? 'exiting' : ''}`}
       role="dialog"
       aria-modal="true"
       aria-label="App tour"
+      tabIndex={-1}
     >
       <div className="tour-card">
         {/* Skip button (hidden on last step) */}

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import './WhatsNew.css';
 
 // Bump this when shipping a batch of features — users who haven't seen the
@@ -67,6 +67,11 @@ const FEATURES = [
 ];
 
 export default function WhatsNew({ onClose }) {
+  // Move focus into the dialog on open (QA: screen readers never
+  // announced it and Tab kept walking the page behind).
+  const overlayRef = useRef(null);
+  useEffect(() => { overlayRef.current?.focus(); }, []);
+
   const handleClose = () => {
     markWhatsNewSeen();
     onClose();
@@ -88,7 +93,7 @@ export default function WhatsNew({ onClose }) {
   }, []);
 
   return (
-    <div className="whatsnew-overlay" onClick={handleClose} role="dialog" aria-modal="true" aria-label="What's new in Pantry Snap">
+    <div ref={overlayRef} tabIndex={-1} className="whatsnew-overlay" onClick={handleClose} role="dialog" aria-modal="true" aria-label="What's new in Pantry Snap">
       <div className="whatsnew-card animate-scale-in" onClick={(e) => e.stopPropagation()}>
         <div className="whatsnew-hero">
           <div className="whatsnew-sparkle" aria-hidden="true">✨</div>
