@@ -1,0 +1,276 @@
+/* Auth redesign — DESIGN_SYSTEM.md §5.
+ *
+ * Opaque card, hairline ring, exactly ONE filled button, two fields, and the
+ * product's own surface language rather than an invented "login look".
+ * Deliberately NO backdrop-filter: nine measured production auth pages, zero
+ * use it — there is nothing moving behind a static centred card to refract.
+ */
+
+.av2 {
+  min-height: 100vh;
+  min-height: 100dvh; /* iOS URL bar + keyboard */
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: var(--font-family, 'Inter', system-ui, sans-serif);
+}
+
+.av2-card {
+  width: 100%;
+  max-width: 400px;
+  background: #12161c;
+  border-radius: 14px;
+  padding: 28px 26px 24px;
+  /* The depth is a hairline ring plus one soft lift — not a blur. */
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.09),
+    0 1px 0 0 rgb(255 255 255 / 0.05) inset,
+    0 18px 40px -18px rgb(0 0 0 / 0.8);
+}
+
+.av2-brand {
+  /* A <button> now (the route home), so it needs the button chrome stripped. */
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8b949e;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin-bottom: 18px;
+  /* The wordmark is a real control now but only ~17px tall. Expand the hit
+     area with a pseudo-element so the visual weight does not change; the 18px
+     margin below means the 12px expansion cannot overlap the heading. */
+  position: relative;
+}
+
+.av2-brand::after {
+  content: '';
+  position: absolute;
+  inset: -12px -8px;
+}
+
+/* The H1 names the ACTION, not the wordmark — the logo is already above. */
+.av2-h1 {
+  text-wrap: balance;
+  font-size: 1.32rem;
+  font-weight: 680;
+  letter-spacing: -0.015em;
+  margin: 0 0 6px;
+}
+
+.av2-sub {
+  text-wrap: pretty;
+  font-size: 0.88rem;
+  color: #8b949e;
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+/* OAuth: first in POSITION, secondary in WEIGHT. */
+.av2-oauth {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.04);
+  border: 1px solid rgb(255 255 255 / 0.11);
+  color: #e6edf3;
+  font-size: 0.92rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.av2-oauth:hover:not(:disabled) {
+  background: rgb(255 255 255 / 0.07);
+  border-color: rgb(255 255 255 / 0.18);
+}
+
+/* Matches .av2-submit:disabled — the consent gate applies to both account
+   paths, so both must read as shut. */
+.av2-oauth:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.av2-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: #7d8590;
+  font-size: 0.76rem;
+}
+
+.av2-divider::before,
+.av2-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgb(255 255 255 / 0.08);
+}
+
+.av2-field { margin-bottom: 12px; }
+
+.av2-label {
+  display: block;
+  font-size: 0.79rem;
+  font-weight: 550;
+  color: #adbac7;
+  margin-bottom: 6px;
+}
+
+.av2-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #0d1117;
+  border: 1px solid rgb(255 255 255 / 0.11);
+  color: #e6edf3;
+  /* >=16px or iOS zooms on focus and never zooms back. */
+  font-size: 1rem;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.av2-input::placeholder { color: #545d68; }
+
+.av2-input:focus {
+  outline: none;
+  border-color: #2ea043;
+  box-shadow: 0 0 0 3px rgb(46 160 67 / 0.18);
+}
+
+/* Recovery sits under the field it recovers, not buried at the card's foot. */
+.av2-forgot {
+  /* The label is only ~15px tall. flex + min-height gives it a 40px hit area
+     without moving the text, and width:fit-content keeps margin-left:auto
+     right-aligning it. */
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 40px;
+  margin: 0 0 0 auto;
+  padding: 0 2px;
+  background: none;
+  border: none;
+  color: #7d8590;
+  font-size: 0.79rem;
+  cursor: pointer;
+}
+
+.av2-forgot:hover:not(:disabled) { color: #c9d1d9; text-decoration: underline; }
+.av2-forgot:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* The single filled control on the page. */
+.av2-submit {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 6px;
+  border-radius: 10px;
+  background: #2ea043;
+  color: #0d1117; /* AA: white on this green is 3.37:1. See LandingV2.css .v2-btn. */
+  border: 1px solid transparent;
+  font-size: 0.97rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 140ms ease, transform 140ms ease;
+}
+
+.av2-submit:hover:not(:disabled) { background: #3fb950; }
+.av2-submit:active:not(:disabled) { transform: scale(0.985); }
+
+.av2-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Consent stays a real checkbox: the EULA discloses data sale, so explicit
+   consent is a legal position, not a design one. Styled to sit quietly. */
+.av2-consent {
+  text-wrap: pretty;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 14px 0 2px;
+  font-size: 0.79rem;
+  line-height: 1.45;
+  color: #8b949e;
+  cursor: pointer;
+}
+
+.av2-consent input {
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  flex-shrink: 0;
+  accent-color: #2ea043;
+}
+
+.av2-consent a { color: #8b949e; text-decoration: underline; }
+.av2-consent a:hover { color: #c9d1d9; }
+
+.av2-alt {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgb(255 255 255 / 0.07);
+  text-align: center;
+  font-size: 0.85rem;
+  color: #8b949e;
+}
+
+.av2-alt button {
+  background: none;
+  border: none;
+  color: #3fb950;
+  font-weight: 550;
+  font-size: inherit;
+  cursor: pointer;
+  padding: 0;
+  /* Same hit-area expansion as the wordmark — 17px of text is not a target. */
+  position: relative;
+}
+
+.av2-alt button::after {
+  content: '';
+  position: absolute;
+  inset: -12px -10px;
+}
+
+.av2-alt button:hover { text-decoration: underline; }
+
+.av2-msg {
+  padding: 10px 12px;
+  border-radius: 9px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  margin-bottom: 14px;
+}
+
+.av2-msg-error {
+  background: rgb(248 81 73 / 0.12);
+  border: 1px solid rgb(248 81 73 / 0.3);
+  color: #ffb4ac;
+}
+
+.av2-msg-info {
+  background: rgb(46 160 67 / 0.1);
+  border: 1px solid rgb(46 160 67 / 0.28);
+  color: #7ee2a8;
+}
+
+/* The global reduced-motion rule only zeroes durations, which would make
+   the press scale snap rather than not happen. Suppress the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .av2-submit:active:not(:disabled) { transform: none; }
+}

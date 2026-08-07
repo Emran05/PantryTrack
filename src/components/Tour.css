@@ -221,7 +221,7 @@
   height: 8px;
   border-radius: 50%;
   background: var(--color-border, #334155);
-  transition: all 300ms ease;
+  transition: background 300ms ease, border-radius 300ms ease, width 300ms ease;
 }
 
 .tour-dot.active {
@@ -248,7 +248,7 @@
   border-radius: var(--radius-lg, 14px);
   font-size: var(--font-size-base, 0.9rem);
   font-weight: 600;
-  transition: all var(--transition-fast, 150ms);
+  transition: background var(--transition-fast, 150ms), box-shadow var(--transition-fast, 150ms), color var(--transition-fast, 150ms), transform var(--transition-fast, 150ms);
 }
 
 .tour-btn-back {

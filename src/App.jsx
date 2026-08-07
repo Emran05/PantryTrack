@@ -10,6 +10,11 @@ import BottomNav from './components/BottomNav';
 import Tour, { isTourCompleted } from './components/Tour';
 import WhatsNew, { shouldShowWhatsNew, markWhatsNewSeen } from './components/WhatsNew';
 import Landing from './pages/Landing';
+// Redesign proposal, reachable at /preview-landing only. Not linked from
+// anywhere; the live landing stays at '/' until the owner approves.
+const LandingV2 = lazy(() => import('./pages/LandingV2'));
+const WhyFree = lazy(() => import('./pages/WhyFree'));
+const AuthV2 = lazy(() => import('./pages/AuthV2'));
 import Auth from './pages/Auth';
 // Eager, not lazy: these render in the unauthenticated route set too, which
 // has no Suspense boundary — and deep links (recovery emails, invites) should
@@ -28,6 +33,11 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const ScanReceipt = lazy(() => import('./pages/ScanReceipt'));
 const Recipes = lazy(() => import('./pages/Recipes'));
 const Settings = lazy(() => import('./pages/Settings'));
+
+function WhyFreeRoute() {
+  const navigate = useNavigate();
+  return <WhyFree onNavigate={(to) => navigate(to)} />;
+}
 
 function PageTransitionWrapper({ children }) {
   const location = useLocation();
@@ -97,6 +107,9 @@ function AppContent() {
     return (
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/preview-landing" element={<Suspense fallback={null}><LandingV2 /></Suspense>} />
+        <Route path="/why-free" element={<Suspense fallback={null}><WhyFreeRoute /></Suspense>} />
+        <Route path="/preview-auth" element={<Suspense fallback={null}><AuthV2 /></Suspense>} />
         <Route path="/login" element={<Auth />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/join/:token" element={<JoinPantry />} />
@@ -145,6 +158,7 @@ function AppContent() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/join/:token" element={<JoinPantry />} />
+            <Route path="/why-free" element={<WhyFreeRoute />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </PageTransitionWrapper>

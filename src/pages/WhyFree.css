@@ -1,0 +1,217 @@
+/* One reading column. No cards, no grid, no comparison table — a card is a
+   comparison affordance and there is nothing here to compare. */
+
+.wf {
+  min-height: 100vh;
+  min-height: 100svh;
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: var(--font-family, 'Inter', system-ui, sans-serif);
+  /* clip, not hidden — see LandingV2.css. `hidden` would make this a scroll
+     container and unstick the floating nav. */
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+.wf-main {
+  max-width: 660px; /* reading measure, not a layout container */
+  margin-inline: auto;
+  padding: 72px 24px 40px;
+}
+
+.wf-h1 {
+  text-wrap: balance;
+  font-size: clamp(1.8rem, 3.2vw, 2.4rem);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  margin: 0 0 14px;
+}
+
+.wf-lede {
+  text-wrap: pretty;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: #adbac7;
+  margin: 0 0 8px;
+}
+
+.wf-section {
+  padding-top: 44px;
+  margin-top: 44px;
+  border-top: 1px solid rgb(255 255 255 / 0.07);
+}
+
+.wf-h2 {
+  text-wrap: balance;
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  margin: 0 0 14px;
+}
+
+.wf-h3 {
+  text-wrap: balance;
+  font-size: 0.83rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8b949e;
+  margin: 0 0 10px;
+}
+
+.wf-section p {
+  color: #adbac7;
+  line-height: 1.65;
+  margin: 0 0 14px;
+}
+
+.wf-section strong { color: #e6edf3; font-weight: 600; }
+/* Prose links only. A button-shaped link is not a prose link, and this
+   descendant selector out-specifies .wf-btn — which rendered the opt-out
+   button's label green on green (1.33:1). */
+.wf-section a:not(.wf-btn) { color: #3fb950; }
+
+.wf-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  margin-top: 6px;
+}
+
+.wf-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wf-list li {
+  position: relative;
+  padding-left: 20px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: #c9d1d9;
+}
+
+/* Square marks, matching the icon family — outbound is accent, never is muted
+   and struck through by a shorter bar. */
+.wf-list li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.6em;
+  width: 7px;
+  height: 7px;
+  background: #2ea043;
+}
+
+.wf-list-never li::before {
+  background: none;
+  border: 1px solid #6e7681;
+  height: 7px;
+  width: 7px;
+}
+
+.wf-btn {
+  margin-top: 6px;
+  /* Also worn by an <a> (the logged-out opt-out link), which needs the box
+     model and the underline reset that a <button> gets for free. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  background: #2ea043;
+  color: #0d1117; /* AA: white on this green is 3.37:1. See LandingV2.css .v2-btn. */
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-weight: 650;
+  font-size: 0.95rem;
+  padding: 12px 20px;
+  min-height: 46px;
+  cursor: pointer;
+  transition: background 0.16s ease, transform 0.16s ease;
+}
+
+.wf-btn:hover { background: #3fb950; transform: translateY(-1px); }
+.wf-btn:active { transform: scale(0.97); }
+.wf-btn-lg { padding: 15px 28px; min-height: 52px; font-size: 1.02rem; }
+
+/* Native <details> — no JS, no library, keyboard and screen reader correct. */
+.wf-faq {
+  display: flex;
+  flex-direction: column;
+}
+
+.wf-faq-item {
+  border-bottom: 1px solid rgb(255 255 255 / 0.07);
+}
+
+.wf-faq-item summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 16px 28px 16px 0;
+  font-size: 0.97rem;
+  font-weight: 550;
+  color: #e6edf3;
+  position: relative;
+}
+
+.wf-faq-item summary::-webkit-details-marker { display: none; }
+
+/* Custom marker: two strokes forming a plus, rotating to a minus when open. */
+.wf-faq-item summary::after,
+.wf-faq-item summary::before {
+  content: '';
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  width: 11px;
+  height: 1.6px;
+  background: #8b949e;
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.wf-faq-item summary::before { transform: translateY(-50%) rotate(90deg); }
+.wf-faq-item summary::after { transform: translateY(-50%); }
+.wf-faq-item[open] summary::before { transform: translateY(-50%) rotate(0deg); opacity: 0; }
+
+.wf-faq-item p {
+  margin: 0;
+  padding: 0 0 18px;
+  font-size: 0.93rem;
+  line-height: 1.6;
+  color: #8b949e;
+}
+
+.wf-close {
+  margin-top: 56px;
+  padding-top: 44px;
+  border-top: 1px solid rgb(255 255 255 / 0.07);
+  text-align: center;
+}
+
+.wf-close-line {
+  font-size: 1.05rem;
+  color: #adbac7;
+  margin: 0 0 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wf-faq-item summary::before,
+  .wf-faq-item summary::after { transition: none; }
+}
+
+@media (max-width: 720px) {
+  .wf-main { padding: 40px 20px 32px; }
+  .wf-split { grid-template-columns: 1fr; gap: 22px; }
+  .wf-section { padding-top: 32px; margin-top: 32px; }
+}
+
+/* The global reduced-motion rule only zeroes durations, which would make
+   the press scale snap rather than not happen. Suppress the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .wf-btn:active, .wf-btn:hover { transform: none; }
+}

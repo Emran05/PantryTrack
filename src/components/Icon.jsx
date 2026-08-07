@@ -65,6 +65,9 @@ const PATHS = {
   ),
   check: <path d="M5 12.5 10 17.5 19 7" />,
   close: <path d="M6 6l12 12M18 6L6 18" />,
+  // Menu: three rules on the 4px grid, the top one short — the family's
+  // clipped-corner motif expressed as a clipped line rather than a corner.
+  menu: <path d="M4 7h11M4 12h16M4 17h16" />,
   plus: <path d="M12 5v14M5 12h14" />,
   minus: <path d="M5 12h14" />,
   // Trash with a clipped lid corner.

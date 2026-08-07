@@ -1,4 +1,7 @@
 .expiration-badge {
+  /* Counts and countdowns change in place; proportional digits make the
+     row jitter as the width shifts. */
+  font-variant-numeric: tabular-nums;
   display: inline-flex;
   align-items: center;
   gap: 4px;

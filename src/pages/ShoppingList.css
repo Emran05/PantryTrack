@@ -89,7 +89,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   margin-bottom: var(--space-sm);
-  transition: all var(--transition-fast);
+  transition: opacity var(--transition-fast);
 }
 
 .shopping-item.checked {
@@ -111,7 +111,7 @@
   height: 22px;
   border: 2px solid var(--color-border-light);
   border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
 }
 
 .shopping-check-box.checked {
@@ -164,7 +164,7 @@
   font-size: 11px;
   color: var(--color-text-muted);
   opacity: 0;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast);
   flex-shrink: 0;
 }
 
@@ -197,7 +197,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 150ms ease;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
 }
 
 .voice-mic:active {
