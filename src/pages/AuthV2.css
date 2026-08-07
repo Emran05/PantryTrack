@@ -31,6 +31,11 @@
 }
 
 .av2-brand {
+  /* A <button> now (the route home), so it needs the button chrome stripped. */
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;

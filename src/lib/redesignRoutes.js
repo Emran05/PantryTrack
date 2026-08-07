@@ -11,3 +11,5 @@
 
 export const AUTH_LOGIN = '/preview-auth';
 export const AUTH_SIGNUP = '/preview-auth?mode=signup';
+// Where the auth card's wordmark goes. Becomes '/' at ship, same as above.
+export const HOME = '/preview-landing';

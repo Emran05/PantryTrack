@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import Icon from '../components/Icon';
+import { HOME } from '../lib/redesignRoutes';
 import './AuthV2.css';
 
 // Auth redesign proposal (DESIGN_SYSTEM.md §5). Reachable at /preview-auth.
@@ -113,10 +114,12 @@ export default function AuthV2() {
   return (
     <div className="av2">
       <div className="av2-card">
-        <div className="av2-brand">
+        {/* The wordmark is the way back. Without it the card was a dead end —
+            a visitor who landed here by mistake had only the back button. */}
+        <button type="button" className="av2-brand" onClick={() => navigate(HOME)}>
           <Icon name="pantry" size={17} />
           Pantry Snap
-        </div>
+        </button>
 
         <h1 className="av2-h1">{isLogin ? 'Log in to your pantry' : 'Create your pantry'}</h1>
         <p className="av2-sub">
@@ -201,10 +204,14 @@ export default function AuthV2() {
                 onChange={(e) => setAgreed(e.target.checked)}
               />
               <span>
+                {/* All three open in a new tab. "how that works" used to
+                    navigate in place, which threw away a half-filled form the
+                    moment someone tried to read what they were agreeing to —
+                    the worst possible time to lose their input. */}
                 I agree to the <a href="/legal/eula.html" target="_blank" rel="noreferrer">Terms</a>{' '}
                 and <a href="/legal/privacy.html" target="_blank" rel="noreferrer">Privacy Policy</a>,
                 including the sharing of my data described there —{' '}
-                <a href="/why-free">how that works</a>.
+                <a href="/why-free" target="_blank" rel="noreferrer">how that works</a>.
               </span>
             </label>
           )}
