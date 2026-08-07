@@ -59,6 +59,29 @@ const create = await fetch(`${url}/auth/v1/admin/users`, {
 });
 if (create.ok) { console.log('ok: test account created (pre-confirmed)'); process.exit(0); }
 const detail = await create.text().catch(() => '');
-// Exists but wrong password? Surface without secrets.
-console.error(`FAIL: create returned ${create.status}: ${detail.slice(0, 200)}`);
-process.exit(1);
+if (!detail.includes('email_exists')) {
+  console.error(`FAIL: create returned ${create.status}: ${detail.slice(0, 200)}`);
+  process.exit(1);
+}
+
+// 3) Exists but can't log in — unconfirmed or stale password. Admin-repair it.
+const listRes = await fetch(`${url}/auth/v1/admin/users?page=1&per_page=1000`, {
+  headers: { apikey: svc, Authorization: `Bearer ${svc}` },
+});
+if (!listRes.ok) { console.error(`FAIL: admin list ${listRes.status}`); process.exit(1); }
+const { users = [] } = await listRes.json();
+const existing = users.find(u => u.email === email);
+if (!existing) { console.error('FAIL: email_exists but user not found in first 1000'); process.exit(1); }
+const fix = await fetch(`${url}/auth/v1/admin/users/${existing.id}`, {
+  method: 'PUT',
+  headers: { apikey: svc, Authorization: `Bearer ${svc}`, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ password, email_confirm: true }),
+});
+if (!fix.ok) { console.error(`FAIL: admin update ${fix.status}`); process.exit(1); }
+const relogin = await fetch(`${url}/auth/v1/token?grant_type=password`, {
+  method: 'POST',
+  headers: { apikey: anon, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ email, password }),
+});
+console.log(relogin.ok ? 'ok: existing account confirmed + password set, login verified' : `FAIL: repaired but login still ${relogin.status}`);
+process.exit(relogin.ok ? 0 : 1);
