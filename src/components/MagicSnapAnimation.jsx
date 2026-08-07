@@ -27,9 +27,12 @@ export default function MagicSnapAnimation({ isTriggered }) {
         const newP = p + 1.5; // Speed of scanner (1.5% per frame)
         
         // Check if scanner passed an item
-        RECEIPT_ITEMS.forEach((item, index) => {
+        RECEIPT_ITEMS.forEach((item) => {
           if (p < item.top && newP >= item.top) {
-            setParsedItems(curr => [...curr, item]);
+            // Dedupe: this runs inside a state updater, which React StrictMode
+            // double-invokes in dev — without the guard every row appears twice,
+            // contradicting the "sorted and counted" copy beside it.
+            setParsedItems(curr => (curr.some(i => i.name === item.name) ? curr : [...curr, item]));
           }
         });
         
