@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import FloatingNav from '../components/FloatingNav';
 import SiteFooter from '../components/SiteFooter';
+import { useAuth } from '../contexts/AuthContext';
 import { initReveals } from '../lib/reveal';
 import './WhyFree.css';
 
@@ -36,6 +37,7 @@ const FAQ = [
 
 export default function WhyFree({ onNavigate }) {
   const rootRef = useRef(null);
+  const { user } = useAuth();
   useEffect(() => initReveals(rootRef.current || document), []);
 
   const go = (to) => onNavigate?.(to);
@@ -103,9 +105,21 @@ export default function WhyFree({ onNavigate }) {
             browser signal automatically, so if your browser already says no, we
             already heard it.
           </p>
-          <button className="wf-btn" onClick={() => go('/settings')}>
-            Open privacy settings
-          </button>
+          {/* /settings exists only in the authenticated route set, so sending a
+              logged-out visitor there hit App's catch-all and bounced them to
+              the landing page — the one control this page offers as proof of
+              "you can say no" looked like a crash. Logged out, point at the
+              opt-out page instead: two of the three routes it documents (the
+              GPC browser signal and email) work with no account at all. */}
+          {user ? (
+            <button className="wf-btn" onClick={() => go('/settings')}>
+              Open privacy settings
+            </button>
+          ) : (
+            <a className="wf-btn" href="/legal/do-not-sell.html">
+              How to opt out
+            </a>
+          )}
         </section>
 
         <section className="wf-section reveal">

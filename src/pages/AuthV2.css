@@ -74,9 +74,16 @@
   transition: background 140ms ease, border-color 140ms ease;
 }
 
-.av2-oauth:hover {
+.av2-oauth:hover:not(:disabled) {
   background: rgb(255 255 255 / 0.07);
   border-color: rgb(255 255 255 / 0.18);
+}
+
+/* Matches .av2-submit:disabled — the consent gate applies to both account
+   paths, so both must read as shut. */
+.av2-oauth:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .av2-divider {

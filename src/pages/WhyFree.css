@@ -110,6 +110,12 @@
 
 .wf-btn {
   margin-top: 6px;
+  /* Also worn by an <a> (the logged-out opt-out link), which needs the box
+     model and the underline reset that a <button> gets for free. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
   background: #2ea043;
   color: #fff;
   border: 1px solid transparent;
