@@ -19,7 +19,11 @@
 .category-label {
   font-size: var(--font-size-xs);
   font-weight: 600;
-  color: var(--cat-color);
+  /* The raw category hue as TEXT failed 4.5:1 on 20 of 36 theme/category
+     pairs (Arctic condiments was 1.92:1). Identity still comes from the dot
+     and the tinted pill; the label itself uses a token that passes AA in
+     every theme. */
+  color: var(--color-text-primary);
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }

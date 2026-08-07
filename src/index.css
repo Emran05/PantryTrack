@@ -26,13 +26,19 @@
   /* Text */
   --color-text-primary: #f1f5f9;
   --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
+  --color-text-muted: #8692a4;
   --color-text-inverse: #0f172a;
 
   /* Status Colors */
   --color-success: #22c55e;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
+  /* Status colors are also used as TEXT on badges, where the raw hue fails
+     4.5:1 (danger was 3.89:1 here, 2.15:1 in Arctic). These variants are
+     tuned per theme for text; the raw tokens stay for fills and borders. */
+  --color-success-text: #22c55e;
+  --color-warning-text: #f59e0b;
+  --color-danger-text: #f26363;
   --color-info: #3b82f6;
 
   /* Category Colors */

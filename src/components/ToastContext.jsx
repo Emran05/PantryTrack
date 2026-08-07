@@ -51,7 +51,17 @@ function ToastMessage({ toast, onDismiss }) {
   };
 
   return (
-    <div className={`toast toast-${toast.type} animate-slide-up`} key={toast.id} onClick={onDismiss}>
+    // Toasts are the app's entire feedback channel — without live-region
+    // semantics none of it reaches a screen reader. Errors interrupt; routine
+    // confirmations wait for a pause.
+    <div
+      className={`toast toast-${toast.type} animate-slide-up`}
+      key={toast.id}
+      onClick={onDismiss}
+      role={toast.type === 'error' ? 'alert' : 'status'}
+      aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+      aria-atomic="true"
+    >
       <span className="toast-icon">
         {toast.type === 'success' ? '✓' : toast.type === 'error' ? '✕' : 'ℹ'}
       </span>

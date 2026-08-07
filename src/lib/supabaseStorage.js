@@ -365,8 +365,35 @@ export async function deletePantryItem(itemId) {
 // Decrement an item's quantity; delete the row if it would go to zero.
 // Returns { removed, prevQty, newQty, name, category, unit, id, ... } so the
 // caller can decide whether to log a waste event, prompt restock, etc.
-export async function consumePantryItem(itemId, amountToConsume) {
+export async function consumePantryItem(itemId, amountToConsume, pantryId) {
   if (amountToConsume <= 0) throw new Error('amountToConsume must be positive');
+
+  // Preferred path: one row-locked transaction server-side. The read-then-write
+  // fallback below loses a write when two housemates use the same item at once,
+  // so only fall back when the RPC is genuinely missing (unapplied migrations).
+  if (pantryId) {
+    const { data, error } = await supabase.rpc('consume_pantry_item_atomic', {
+      p_pantry_id: pantryId,
+      p_item_id: itemId,
+      p_qty: amountToConsume,
+    });
+    if (!error) {
+      const row = (data || [])[0];
+      if (row) {
+        return {
+          id: row.item_id,
+          name: row.item_name,
+          prevQty: row.prev_qty,
+          newQty: row.new_qty,
+          removed: row.removed,
+        };
+      }
+    } else if (error.code !== 'PGRST202') {
+      throw error;
+    } else {
+      console.warn('consume_pantry_item_atomic missing — apply supabase/migrations. Falling back to read-then-write.');
+    }
+  }
 
   const { data: current, error: getErr } = await supabase
     .from('pantry_items')

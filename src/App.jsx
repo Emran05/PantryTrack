@@ -116,7 +116,7 @@ function AppContent() {
       return <ResetPassword />;
     }
     return (
-      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)' }}>
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-accent)' }}>
         Loading home data...
       </div>
     );

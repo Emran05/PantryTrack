@@ -455,10 +455,13 @@ export default function Settings() {
           <div className="settings-card card">
             <div className="homes-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
               {pantries.map(p => (
-                <div key={p.id} className="settings-row" style={{ 
-                  background: p.id === activePantry?.id ? 'var(--color-primary)' : 'var(--color-bg-primary)', 
-                  border: '1px solid var(--color-border)',
-                  color: p.id === activePantry?.id ? '#fff' : 'var(--color-text-primary)',
+                <div key={p.id} className="settings-row" style={{
+                  // Active row used an undefined --color-primary with hardcoded
+                  // white text: in light themes that rendered white-on-white.
+                  // Theme-aware tokens on both sides instead.
+                  background: p.id === activePantry?.id ? 'var(--color-accent-soft)' : 'var(--color-bg-primary)',
+                  border: `1px solid ${p.id === activePantry?.id ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                  color: 'var(--color-text-primary)',
                   padding: '12px', 
                   borderRadius: '8px',
                   display: 'flex',
