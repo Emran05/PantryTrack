@@ -59,32 +59,46 @@ async function getUserFromToken(token, supabaseUrl, anonKey) {
 
 // Atomic server-side token bucket via the consume_ai_quota RPC (see
 // supabase/migrations). Runs under the USER's JWT so auth.uid() scopes the row.
-// Fails open if the migration hasn't been applied yet — the proxy still works,
-// it just logs that the boundary is missing.
+//
+// This is the ONLY spend boundary on the shared Gemini key — the client-side
+// rateLimit.js is courtesy UX and resettable from devtools. So it fails
+// CLOSED: any Supabase 5xx, pool timeout or auth hiccup used to answer
+// "allowed", which meant one client could burn the key for every user during
+// an outage. The missing-migration escape hatch is now opt-in via env, so
+// production can never silently run without a boundary.
+const ALLOW_QUOTA_FAIL_OPEN = process.env.AI_QUOTA_FAIL_OPEN === 'true';
+
 async function consumeQuota(feature, token, supabaseUrl, anonKey) {
   const quota = QUOTAS[feature];
-  const res = await fetch(`${supabaseUrl}/rest/v1/rpc/consume_ai_quota`, {
-    method: 'POST',
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      p_bucket: `${feature}_project`,
-      p_capacity: quota.capacity,
-      p_window_seconds: quota.windowSeconds,
-    }),
-  });
+  let res;
+  try {
+    res = await fetch(`${supabaseUrl}/rest/v1/rpc/consume_ai_quota`, {
+      method: 'POST',
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        p_bucket: `${feature}_project`,
+        p_capacity: quota.capacity,
+        p_window_seconds: quota.windowSeconds,
+      }),
+    });
+  } catch (err) {
+    // Network failure reaching Supabase — no boundary, no call.
+    console.error('consume_ai_quota unreachable:', err?.message);
+    return { allowed: false, unavailable: true };
+  }
 
-  if (res.status === 404) {
-    console.warn('consume_ai_quota RPC missing — apply the Supabase migration. Failing open.');
+  if (res.status === 404 && ALLOW_QUOTA_FAIL_OPEN) {
+    console.warn('consume_ai_quota RPC missing — AI_QUOTA_FAIL_OPEN is set, allowing through (local/bootstrap only).');
     return { allowed: true };
   }
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    console.warn(`consume_ai_quota failed (${res.status}): ${body.slice(0, 200)} — failing open.`);
-    return { allowed: true };
+    console.error(`consume_ai_quota failed (${res.status}): ${body.slice(0, 200)} — failing closed.`);
+    return { allowed: false, unavailable: true };
   }
   return res.json();
 }
@@ -192,6 +206,15 @@ export default async (req) => {
   const generationConfig = validateGenerationConfig(body?.generationConfig);
 
   const quota = await consumeQuota(feature, token, supabaseUrl, anonKey);
+  if (quota?.unavailable) {
+    // Distinct from "you hit your limit": the boundary itself is down, so
+    // saying "limit reached" would be a lie the user can't act on.
+    return json(503, {
+      code: 'QUOTA_UNAVAILABLE',
+      message: 'AI is briefly unavailable — please try again in a minute.',
+      retryDelaySeconds: 60,
+    });
+  }
   if (!quota?.allowed) {
     return json(429, {
       code: 'GEMINI_RATE_LIMIT',
