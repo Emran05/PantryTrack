@@ -1,4 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+
+// Loaded only when the visitor taps "Try it live" — zero initial-page cost.
+const TryItDemo = lazy(() => import('../components/TryItDemo'));
 import SyncCanvas from '../components/SyncCanvas';
 import MagicBoxDashboard from '../components/MagicBoxDashboard';
 import PixelReceipt from '../components/PixelReceipt';
@@ -16,6 +19,7 @@ export default function Landing() {
   const heroCtaRef = useRef(null);
   const [isStoryTriggered, setIsStoryTriggered] = useState(false);
   const [showStickyCta, setShowStickyCta] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(false);
 
   const scrollToStory = () => {
     document.querySelector('.scroll-story')?.scrollIntoView({ behavior: 'smooth' });
@@ -193,9 +197,22 @@ export default function Landing() {
             </button>
           </div>
           <p className="hero-proof">Free for students · No card · 60-second setup</p>
+          {!demoOpen && (
+            <button className="try-demo-launch" onClick={() => setDemoOpen(true)}>
+              ▶ Try it live — no account, no download
+            </button>
+          )}
         </div>
         
-        <div className="hero-mockup-container">
+        {demoOpen && (
+          <div className="try-demo-wrap">
+            <Suspense fallback={<div className="try-demo-note">Loading the demo…</div>}>
+              <TryItDemo />
+            </Suspense>
+          </div>
+        )}
+
+        <div className="hero-mockup-container" style={demoOpen ? { display: 'none' } : undefined}>
           <div className="mockup-item mockup-item-2" style={{ padding: 0 }}>
              <PixelReceipt />
           </div>

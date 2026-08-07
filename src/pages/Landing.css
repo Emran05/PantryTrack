@@ -358,6 +358,180 @@
   color: #777;
 }
 
+/* --- Try-it hero demo ----------------------------------------------------- */
+.try-demo-launch {
+  display: inline-block;
+  margin-top: 18px;
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  color: #9ae6b4;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 10px 20px;
+  border-radius: 22px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.try-demo-launch:hover {
+  border-color: rgba(154, 230, 180, 0.6);
+  color: #c6f6d5;
+}
+
+.try-demo-wrap {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 420px;
+  margin-top: 32px;
+}
+
+.try-demo {
+  background: rgba(20, 20, 20, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  backdrop-filter: blur(16px);
+  padding: 20px;
+  text-align: left;
+}
+
+.try-demo-receipt {
+  background: #fdfdfd;
+  color: #111;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.try-demo-receipt-head {
+  text-align: center;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.try-demo-receipt-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 1px 0;
+}
+
+.try-demo-scan {
+  width: 100%;
+}
+
+.try-demo-note {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 0.82rem;
+  color: #888;
+}
+
+.try-demo-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.try-demo-progress span {
+  display: block;
+  height: 100%;
+  width: 40%;
+  background: #22c55e;
+  border-radius: 2px;
+  animation: demo-sweep 1.2s ease-out forwards;
+}
+
+.try-demo-progress.done span {
+  width: 100%;
+  animation: none;
+}
+
+@keyframes demo-sweep {
+  from { width: 4%; }
+  to { width: 96%; }
+}
+
+.try-demo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.try-demo-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 10px 12px;
+  animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.try-demo-row-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.try-demo-name {
+  color: #eee;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.try-demo-cat {
+  color: #777;
+  font-size: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 1px 6px;
+}
+
+.try-demo-expiry {
+  color: #9ca3af;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 1px 7px;
+}
+
+.try-demo-expiry.urgent {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.18);
+}
+
+.try-demo-qty {
+  color: #d8b4fe;
+  background: rgba(168, 85, 247, 0.2);
+  font-weight: 700;
+  font-size: 0.8rem;
+  border-radius: 12px;
+  padding: 2px 8px;
+}
+
+.try-demo-save {
+  margin-top: 16px;
+  text-align: center;
+}
+
+.try-demo-save .hero-cta-primary {
+  width: 100%;
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.92) translateY(8px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
 /* Mobile sticky CTA — hidden on desktop, slides up once the hero CTA leaves. */
 .sticky-cta-bar {
   display: none;
