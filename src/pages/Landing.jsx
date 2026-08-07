@@ -215,8 +215,8 @@ export default function Landing() {
         <div className="scroll-sticky">
           <div className="story-container" ref={storyRef}>
             <div className="story-text">
-              <h2>The Magic Snap Component</h2>
-              <p>Forget manual entry. Just hold up your receipt and let our bespoke Vision AI do the parsing, categorization, and quantity matching instantly.</p>
+              <h2>Snap the receipt. Done.</h2>
+              <p>Hold up your grocery receipt — every item lands in your pantry, sorted and counted, before you&rsquo;ve even put the bags away. No typing, ever.</p>
             </div>
             <div className={`story-visual ${isStoryTriggered ? 'triggered' : ''}`} style={{ background: 'transparent', border: 'none' }}>
                <MagicSnapAnimation isTriggered={isStoryTriggered} />
@@ -234,7 +234,7 @@ export default function Landing() {
           <div className="bento-card bento-wide reveal" style={{ '--i': 0 }}>
              <div className="bento-bg"></div>
              <h3>Realtime Sync</h3>
-             <p>A change on your phone updates your partner's phone instantaneously. Zero refresh required.</p>
+             <p>Your roommate grabs milk at the store — it&rsquo;s off your list before they reach the checkout. Everyone sees the same pantry, always.</p>
              <div className="bento-visual-placeholder">
                <SyncCanvas />
              </div>
@@ -247,12 +247,12 @@ export default function Landing() {
           <div className="bento-card reveal" style={{ '--i': 2 }}>
              <div className="bento-bg"></div>
              <h3>Live Barcodes</h3>
-             <p>Scan a packed item and let the Open Food Facts API fill in the details.</p>
+             <p>Point your camera at any barcode — name, brand, and size fill themselves in.</p>
           </div>
           <div className="bento-card reveal" style={{ '--i': 3 }}>
              <div className="bento-bg"></div>
              <h3>Household Invites</h3>
-             <p>Invite roommates with a link to seamlessly share inventory.</p>
+             <p>One link gets your whole apartment on the same pantry. Groceries stop being a group-chat argument.</p>
           </div>
         </div>
       </section>
@@ -261,7 +261,7 @@ export default function Landing() {
       <footer className="landing-footer">
         <div className="footer-glow"></div>
         <div className="footer-content reveal">
-          <h2>Ready to track?</h2>
+          <h2>Stop paying for food you forget.</h2>
           <div className="magnetic-button-wrap" ref={magneticRef}>
             <button onClick={() => startTransition('/login?mode=signup')} className="magnetic-button" style={{ border: 'none', cursor: 'pointer' }}>
               Get Started Free
