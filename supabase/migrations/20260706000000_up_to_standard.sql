@@ -9,14 +9,14 @@
 -- SECURITY DEFINER so it can read pantry_members regardless of that table's
 -- own policies; search_path pinned per Supabase lint guidance.
 -- ---------------------------------------------------------------------------
-create or replace function public.is_pantry_member(p_pantry uuid)
+create or replace function public.is_pantry_member(p_pantry_id uuid)
 returns boolean
 language sql stable security definer
 set search_path = public
 as $$
   select exists (
     select 1 from pantry_members
-    where pantry_id = p_pantry and user_id = auth.uid()
+    where pantry_id = p_pantry_id and user_id = auth.uid()
   );
 $$;
 
@@ -186,7 +186,7 @@ $$;
 -- so the existing pantry_items RLS still applies to every insert; the plpgsql
 -- body just gives us one transaction instead of N racing client calls.
 -- ---------------------------------------------------------------------------
-create or replace function public.import_receipt_items(p_pantry uuid, p_items jsonb)
+create or replace function public.import_receipt_items(p_pantry_id uuid, p_items jsonb)
 returns int
 language plpgsql
 set search_path = public
@@ -196,7 +196,7 @@ declare
   v_name text;
   v_count int := 0;
 begin
-  if not is_pantry_member(p_pantry) then
+  if not is_pantry_member(p_pantry_id) then
     raise exception 'not a member of this pantry';
   end if;
   if jsonb_typeof(p_items) <> 'array' then
@@ -210,7 +210,7 @@ begin
     end if;
     insert into pantry_items (pantry_id, area_id, name, category, quantity, unit, expiration_date, notes)
     values (
-      p_pantry,
+      p_pantry_id,
       nullif(v->>'area_id', '')::uuid,
       v_name,
       coalesce(nullif(v->>'category', ''), 'other'),
@@ -234,7 +234,7 @@ revoke execute on function public.import_receipt_items(uuid, jsonb) from anon;
 -- where the category→shelf-life mapping lives. Rows that aren't checked (or
 -- were already moved by a housemate) are skipped, not errors.
 -- ---------------------------------------------------------------------------
-create or replace function public.move_checked_to_pantry(p_pantry uuid, p_moves jsonb)
+create or replace function public.move_checked_to_pantry(p_pantry_id uuid, p_moves jsonb)
 returns jsonb
 language plpgsql
 set search_path = public
@@ -244,7 +244,7 @@ declare
   r shopping_items%rowtype;
   v_moved int := 0;
 begin
-  if not is_pantry_member(p_pantry) then
+  if not is_pantry_member(p_pantry_id) then
     raise exception 'not a member of this pantry';
   end if;
   if jsonb_typeof(p_moves) <> 'array' then
@@ -253,7 +253,7 @@ begin
 
   for v in select * from jsonb_array_elements(p_moves) loop
     select * into r from shopping_items
-    where id = (v->>'id')::uuid and pantry_id = p_pantry and is_checked
+    where id = (v->>'id')::uuid and pantry_id = p_pantry_id and is_checked
     for update;
     if not found then
       continue;
@@ -261,7 +261,7 @@ begin
 
     insert into pantry_items (pantry_id, name, category, quantity, unit, expiration_date, notes)
     values (
-      p_pantry,
+      p_pantry_id,
       r.name,
       coalesce(r.category, 'other'),
       coalesce(r.quantity, 1),
