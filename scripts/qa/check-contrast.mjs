@@ -14,17 +14,17 @@ const ratio = (a, b) => {
 
 // Values read from src/index.css (midnight default) and src/lib/themes.js.
 const THEMES = {
-  midnight: { bg: '#0f172a', card: '#1e293b', muted: '#8692a4', secondary: '#94a3b8' },
-  arctic:   { bg: '#f0f4f8', card: '#ffffff', muted: '#626c7a', secondary: '#475569' },
-  lavender: { bg: '#1a1625', card: '#2d2640', muted: '#9891ae', secondary: '#b8b0d0' },
-  sunset:   { bg: '#1c1210', card: '#2c1e1a', muted: '#a08678', secondary: '#d4a88c' },
+  midnight: { bg: '#0f172a', card: '#1e293b', muted: '#8692a4', secondary: '#94a3b8', success: '#22c55e', warning: '#f59e0b', danger: '#f26363' },
+  arctic:   { bg: '#f0f4f8', card: '#ffffff', muted: '#626c7a', secondary: '#475569', success: '#167d3c', warning: '#966107', danger: '#c73939' },
+  lavender: { bg: '#1a1625', card: '#2d2640', muted: '#9891ae', secondary: '#b8b0d0', success: '#22c55e', warning: '#f59e0b', danger: '#f26363' },
+  sunset:   { bg: '#1c1210', card: '#2c1e1a', muted: '#a08678', secondary: '#d4a88c', success: '#22c55e', warning: '#f59e0b', danger: '#f05454' },
 };
 
 const AA = 4.5;
 let fail = 0;
 for (const [name, t] of Object.entries(THEMES)) {
   for (const surface of ['bg', 'card']) {
-    for (const token of ['muted', 'secondary']) {
+    for (const token of ['muted', 'secondary', 'success', 'warning', 'danger']) {
       const r = ratio(t[token], t[surface]);
       const ok = r >= AA;
       if (!ok) fail++;
