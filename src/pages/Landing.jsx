@@ -12,7 +12,24 @@ export default function Landing() {
   const containerRef = useRef(null);
   const magneticRef = useRef(null);
   const storyRef = useRef(null);
+  const heroCtaRef = useRef(null);
   const [isStoryTriggered, setIsStoryTriggered] = useState(false);
+  const [showStickyCta, setShowStickyCta] = useState(false);
+
+  const scrollToStory = () => {
+    document.querySelector('.scroll-story')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Sticky CTA appears once the hero's primary CTA has scrolled off the top.
+  useEffect(() => {
+    const el = heroCtaRef.current;
+    if (!el || !('IntersectionObserver' in window)) return;
+    const obs = new IntersectionObserver(([entry]) => {
+      setShowStickyCta(!entry.isIntersecting && entry.boundingClientRect.top < 0);
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   // Parallax Hero Effect
   useEffect(() => {
@@ -119,10 +136,34 @@ export default function Landing() {
       <header className="landing-hero">
         <div className="hero-glow"></div>
         <div className="hero-content">
-          <h1 className="hero-title">Your Pantry,<br/>Memorized in a Snap.</h1>
+          <h1 className="hero-title">
+            Never buy the same milk twice&nbsp;—
+            <span className="hero-rotator" aria-hidden="true">
+              <span>in your dorm.</span>
+              <span>with your roommates.</span>
+              <span>on a student budget.</span>
+              <span>in your first apartment.</span>
+            </span>
+            <span className="sr-only">in your dorm, with your roommates, on a student budget.</span>
+          </h1>
           <p className="hero-subtitle">
-            The intelligent inventory tracker that turns receipts into structured data and organizes your household with zero friction.
+            Snap a receipt and PantrySnap keeps the list for you — what you have,
+            what&rsquo;s expiring, what to cook tonight. The average person tosses{' '}
+            <strong>$728 of food a year</strong>. Roommates who don&rsquo;t share a list toss the most.
           </p>
+          <div className="hero-cta-row">
+            <button
+              ref={heroCtaRef}
+              onClick={() => startTransition('/login?mode=signup')}
+              className="hero-cta-primary"
+            >
+              Build my pantry — free
+            </button>
+            <button onClick={scrollToStory} className="hero-cta-secondary">
+              See how it works
+            </button>
+          </div>
+          <p className="hero-proof">Free for students · No card · 60-second setup</p>
         </div>
         
         <div className="hero-mockup-container">
@@ -203,6 +244,18 @@ export default function Landing() {
           </div>
         </div>
       </footer>
+
+      {/* Mobile: primary CTA follows once the hero's scrolls away (research:
+          sticky bottom CTA bars measure +15-25% on conversion). */}
+      <div className={`sticky-cta-bar ${showStickyCta ? 'visible' : ''}`} aria-hidden={!showStickyCta}>
+        <button
+          onClick={() => startTransition('/login?mode=signup')}
+          className="hero-cta-primary"
+          tabIndex={showStickyCta ? 0 : -1}
+        >
+          Build my pantry — free
+        </button>
+      </div>
     </div>
   );
 }
