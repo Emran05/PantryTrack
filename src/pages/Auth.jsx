@@ -96,7 +96,7 @@ export default function Auth() {
   return (
     <div className="auth-container animate-fade-in">
       <div className="auth-card">
-        <h1 className="auth-title">Pantry Tracker</h1>
+        <h1 className="auth-title">Pantry Snap</h1>
         <p className="auth-subtitle">
           {isReset ? 'Enter your email and we\'ll send a reset link.' : isLogin ? 'Welcome back' : 'Create an account to start tracking.'}
         </p>
@@ -108,8 +108,11 @@ export default function Auth() {
           <>
             <form onSubmit={handleResetRequest} className="auth-form">
               <div className="form-group">
-                <label>Email</label>
+                <label htmlFor="reset-email">Email</label>
                 <input
+                  id="reset-email"
+                  name="email"
+                  autoComplete="email"
                   type="email"
                   required
                   value={email}
@@ -158,8 +161,11 @@ export default function Auth() {
           {!isLogin && (
             <div style={{ display: 'flex', gap: 'var(--space-md)' }}>
               <div className="form-group" style={{ flex: 1 }}>
-                <label>First Name</label>
+                <label htmlFor="auth-first-name">First Name</label>
                 <input
+                  id="auth-first-name"
+                  name="firstName"
+                  autoComplete="given-name"
                   type="text"
                   required
                   value={firstName}
@@ -168,8 +174,11 @@ export default function Auth() {
                 />
               </div>
               <div className="form-group" style={{ flex: 1 }}>
-                <label>Last Name</label>
+                <label htmlFor="auth-last-name">Last Name</label>
                 <input
+                  id="auth-last-name"
+                  name="lastName"
+                  autoComplete="family-name"
                   type="text"
                   required
                   value={lastName}
@@ -180,8 +189,11 @@ export default function Auth() {
             </div>
           )}
           <div className="form-group">
-            <label>Email</label>
+            <label htmlFor="auth-email">Email</label>
             <input
+              id="auth-email"
+              name="email"
+              autoComplete="email"
               type="email"
               required
               value={email}
@@ -190,8 +202,11 @@ export default function Auth() {
             />
           </div>
           <div className="form-group">
-            <label>Password</label>
+            <label htmlFor="auth-password">Password</label>
             <input
+              id="auth-password"
+              name="password"
+              autoComplete={isLogin ? 'current-password' : 'new-password'}
               type="password"
               required
               value={password}
@@ -201,12 +216,11 @@ export default function Auth() {
             />
           </div>
           {!isLogin && (
-            <label style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '0.85rem', lineHeight: 1.45, marginBottom: 'var(--space-md)', cursor: 'pointer' }}>
+            <label className="consent-label">
               <input
                 type="checkbox"
                 checked={agreedToTerms}
                 onChange={(e) => setAgreedToTerms(e.target.checked)}
-                style={{ marginTop: '3px', flexShrink: 0 }}
               />
               <span>
                 I agree to the <a href="/legal/eula.html" target="_blank" rel="noreferrer">EULA</a> and{' '}
