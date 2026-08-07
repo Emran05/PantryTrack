@@ -22,7 +22,9 @@
   padding: 0 var(--space-xl);
   z-index: 100;
   background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
-  backdrop-filter: blur(8px);
+  /* Benchmark: backdrop blur is a true per-frame GPU cost above animated
+     layers — 3px reads the same as 8px over a dark scrim at a fraction of it. */
+  backdrop-filter: blur(3px);
 }
 
 .landing-logo {
@@ -93,6 +95,17 @@
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
+  /* Benchmark: scope invalidation to the hero and cache the blurred layers
+     into one composited texture. */
+  contain: paint;
+  transform: translateZ(0);
+}
+
+/* Battery: everything pauses while the hero is scrolled out of view. */
+.hero-aurora.paused .aurora-blob,
+.hero-aurora.paused .aurora-grain,
+.hero-aurora.paused .aurora-grid {
+  animation-play-state: paused;
 }
 
 .aurora-blob {

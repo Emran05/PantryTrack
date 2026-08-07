@@ -24,6 +24,19 @@ export default function Landing() {
   // Below-fold reveals (shared observer; above-fold stays frozen per research).
   useEffect(() => initReveals(containerRef.current || document), []);
 
+  // Battery: pause the aurora layers while the hero is off-screen.
+  useEffect(() => {
+    const root = containerRef.current;
+    const hero = root?.querySelector('.landing-hero');
+    const aurora = root?.querySelector('.hero-aurora');
+    if (!hero || !aurora || !('IntersectionObserver' in window)) return;
+    const obs = new IntersectionObserver(([entry]) => {
+      aurora.classList.toggle('paused', !entry.isIntersecting);
+    });
+    obs.observe(hero);
+    return () => obs.disconnect();
+  }, []);
+
   // Sticky CTA appears once the hero's primary CTA has scrolled off the top.
   useEffect(() => {
     const el = heroCtaRef.current;
@@ -35,8 +48,10 @@ export default function Landing() {
     return () => obs.disconnect();
   }, []);
 
-  // Parallax Hero Effect
+  // Parallax Hero Effect — pointer devices only; on touch these handlers are
+  // dead weight for the exact audience the page targets (research finding).
   useEffect(() => {
+    if (!matchMedia('(pointer: fine)').matches) return;
     const handleMouseMove = (e) => {
       if (!containerRef.current) return;
       const { innerWidth, innerHeight } = window;
@@ -65,8 +80,9 @@ export default function Landing() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  // Magnetic Button Effect
+  // Magnetic Button Effect — pointer devices only (see parallax note).
   useEffect(() => {
+    if (!matchMedia('(pointer: fine)').matches) return;
     const btnBox = magneticRef.current;
     if (!btnBox) return;
 
