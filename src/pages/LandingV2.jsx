@@ -20,6 +20,41 @@ export default function LandingV2() {
 
   useEffect(() => initReveals(rootRef.current || document), []);
 
+  // Arriving from another page's header (/why-free links "How it works" here as
+  // /preview-landing#how), or on a cold deep-link.
+  //
+  // A single deferred scroll is not enough: this page is lazy-loaded and its
+  // sections animate in, so the target's offset keeps moving for a while after
+  // mount — one attempt at 80ms landed 900px short. Retry until the section is
+  // actually on screen, then stop. Re-scrolling to a correct position is a
+  // no-op, so the retries are harmless.
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (!id) return;
+    const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // The browser restores the previous scroll offset after the lazy chunk
+    // resolves, which lands on top of anything we do here. Only opt out while
+    // we are honouring a hash; normal back/forward keeps its restoration.
+    const prevRestore = history.scrollRestoration;
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    let tries = 0;
+    const timers = [];
+    const attempt = () => {
+      const el = document.querySelector(`[data-anchor="${id}"]`);
+      if (el) {
+        const { top, bottom } = el.getBoundingClientRect();
+        if (top >= 0 && top < window.innerHeight * 0.5 && bottom > 0) return; // arrived
+        el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
+      }
+      if (++tries < 6) timers.push(setTimeout(attempt, 250));
+    };
+    timers.push(setTimeout(attempt, 80));
+    return () => {
+      timers.forEach(clearTimeout);
+      if ('scrollRestoration' in history) history.scrollRestoration = prevRestore;
+    };
+  }, []);
+
   const toSignup = () => startTransition(AUTH_SIGNUP);
 
   return (
@@ -28,7 +63,12 @@ export default function LandingV2() {
         onLogin={() => startTransition(AUTH_LOGIN)}
         onSignup={toSignup}
         onNavigate={(to) => {
-          if (to.startsWith('#')) document.querySelector(`[data-anchor="${to.slice(1)}"]`)?.scrollIntoView({ behavior: 'smooth' });
+          if (to.startsWith('#')) document.querySelector(`[data-anchor="${to.slice(1)}"]`)?.scrollIntoView({
+            // The CSS honours reduced-motion everywhere; this JS scroll is the
+            // one motion that ignored it, and a long smooth scroll is exactly
+            // what triggers vestibular symptoms.
+            behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+          });
           else startTransition(to);
         }}
       />
