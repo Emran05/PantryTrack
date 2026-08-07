@@ -166,7 +166,7 @@
   padding-inline: 14px;
   border-radius: 9px;
   background: #2ea043;
-  color: #fff;
+  color: #0d1117; /* AA: white on this green is 3.37:1. See LandingV2.css .v2-btn. */
   border: 1px solid transparent;
   font-weight: 650;
   font-size: 0.86rem;

@@ -28,7 +28,11 @@
 /* ---- buttons ---- */
 .v2-btn {
   background: #2ea043;
-  color: #fff;
+  /* Ink, not white. White on this green is 3.37:1 and fails AA (2.54:1 on the
+     brighter hover); the same green with the page ink is 5.61:1 / 7.45:1. Keeps
+     the brand colour and reads brighter on a near-black page. Do not "fix" back
+     to #fff. */
+  color: #0d1117;
   border: 1px solid transparent;
   border-radius: 10px;
   font-weight: 650;

@@ -63,7 +63,10 @@
 }
 
 .wf-section strong { color: #e6edf3; font-weight: 600; }
-.wf-section a { color: #3fb950; }
+/* Prose links only. A button-shaped link is not a prose link, and this
+   descendant selector out-specifies .wf-btn — which rendered the opt-out
+   button's label green on green (1.33:1). */
+.wf-section a:not(.wf-btn) { color: #3fb950; }
 
 .wf-split {
   display: grid;
@@ -117,7 +120,7 @@
   justify-content: center;
   text-decoration: none;
   background: #2ea043;
-  color: #fff;
+  color: #0d1117; /* AA: white on this green is 3.37:1. See LandingV2.css .v2-btn. */
   border: 1px solid transparent;
   border-radius: 10px;
   font-weight: 650;
