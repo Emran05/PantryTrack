@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase, BOOT_HASH, BOOT_SEARCH } from '../lib/supabase';
+import { supabase, BOOT_HASH, BOOT_SEARCH, BOOT_PATH } from '../lib/supabase';
+
+// Survives a mid-flow page reload (BOOT_* constants do not). Set when a
+// recovery navigation is detected, cleared after the password is changed.
+const RECOVERY_FLAG = 'pantry_pw_recovery';
 import { useToast } from '../components/ToastContext';
 import './Auth.css';
 
@@ -29,7 +33,13 @@ export default function ResetPassword() {
     const hashLooksLikeRecovery =
       /type=recovery/.test(hash) ||
       /type=recovery/.test(BOOT_HASH) ||
-      /[?&]code=/.test(BOOT_SEARCH); // PKCE-style recovery link
+      // PKCE-style link — only when the app BOOTED on this route, so an OAuth
+      // ?code= return to the app root can never unlock the form.
+      (BOOT_PATH === '/reset-password' && /[?&]code=/.test(BOOT_SEARCH)) ||
+      sessionStorage.getItem(RECOVERY_FLAG) === '1';
+    if (hashLooksLikeRecovery) {
+      try { sessionStorage.setItem(RECOVERY_FLAG, '1'); } catch { /* private mode */ }
+    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
@@ -72,6 +82,7 @@ export default function ResetPassword() {
       setError(error.message);
       return;
     }
+    try { sessionStorage.removeItem(RECOVERY_FLAG); } catch { /* private mode */ }
     showToast('Password updated');
     navigate('/');
   };

@@ -105,6 +105,11 @@ function AppContent() {
   }
 
   if (loading) {
+    // Password reset must render immediately — a recovery link creates a
+    // session, so without this the reset form hides behind the pantry fetch.
+    if (location.pathname === '/reset-password') {
+      return <ResetPassword />;
+    }
     return (
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)' }}>
         Loading home data...
