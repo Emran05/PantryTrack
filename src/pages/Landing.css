@@ -307,6 +307,24 @@
   z-index: 2;
 }
 
+/* Scroll reveals — Linear's exact production values. Hidden state is gated on
+   BOTH html.js (JS actually running) and no-reduced-motion, so content can
+   never be stranded invisible. Above-the-fold elements must NOT get .reveal. */
+@media (prefers-reduced-motion: no-preference) {
+  html.js .reveal {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  html.js .reveal.revealed {
+    opacity: 1;
+    transform: translateY(0);
+    transition:
+      opacity 0.4s cubic-bezier(0.165, 0.84, 0.44, 1),
+      transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    transition-delay: calc(var(--i, 0) * 70ms);
+  }
+}
+
 /* Scroll Story Section */
 .scroll-story {
   position: relative;

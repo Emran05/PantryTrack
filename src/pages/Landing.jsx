@@ -5,6 +5,7 @@ import PixelReceipt from '../components/PixelReceipt';
 import BarcodeScannerMockup from '../components/BarcodeScannerMockup';
 import MagicSnapAnimation from '../components/MagicSnapAnimation';
 import { useTransition } from '../contexts/TransitionContext';
+import { initReveals } from '../lib/reveal';
 import './Landing.css';
 
 export default function Landing() {
@@ -19,6 +20,9 @@ export default function Landing() {
   const scrollToStory = () => {
     document.querySelector('.scroll-story')?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  // Below-fold reveals (shared observer; above-fold stays frozen per research).
+  useEffect(() => initReveals(containerRef.current || document), []);
 
   // Sticky CTA appears once the hero's primary CTA has scrolled off the top.
   useEffect(() => {
@@ -198,11 +202,11 @@ export default function Landing() {
 
       {/* Bento Grid Features */}
       <section className="bento-section">
-        <div className="bento-header">
+        <div className="bento-header reveal">
           <h2>Everything you need. Nothing you don't.</h2>
         </div>
         <div className="bento-grid">
-          <div className="bento-card bento-wide">
+          <div className="bento-card bento-wide reveal" style={{ '--i': 0 }}>
              <div className="bento-bg"></div>
              <h3>Realtime Sync</h3>
              <p>A change on your phone updates your partner's phone instantaneously. Zero refresh required.</p>
@@ -210,17 +214,17 @@ export default function Landing() {
                <SyncCanvas />
              </div>
           </div>
-          <div className="bento-card bento-tall theme-card">
+          <div className="bento-card bento-tall theme-card reveal" style={{ '--i': 1 }}>
              <div className="bento-bg"></div>
              <h3>Curated Themes</h3>
              <p>Midnight, Arctic, Lavender, or Sunset. Personalize the look to match your kitchen's vibe.</p>
           </div>
-          <div className="bento-card">
+          <div className="bento-card reveal" style={{ '--i': 2 }}>
              <div className="bento-bg"></div>
              <h3>Live Barcodes</h3>
              <p>Scan a packed item and let the Open Food Facts API fill in the details.</p>
           </div>
-          <div className="bento-card">
+          <div className="bento-card reveal" style={{ '--i': 3 }}>
              <div className="bento-bg"></div>
              <h3>Household Invites</h3>
              <p>Invite roommates with a link to seamlessly share inventory.</p>
@@ -231,7 +235,7 @@ export default function Landing() {
       {/* Magnetic Footer */}
       <footer className="landing-footer">
         <div className="footer-glow"></div>
-        <div className="footer-content">
+        <div className="footer-content reveal">
           <h2>Ready to track?</h2>
           <div className="magnetic-button-wrap" ref={magneticRef}>
             <button onClick={() => startTransition('/login?mode=signup')} className="magnetic-button" style={{ border: 'none', cursor: 'pointer' }}>
