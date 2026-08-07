@@ -98,7 +98,9 @@ export async function enablePushNotifications() {
     // Roll back a subscription we just created — otherwise the browser stays
     // subscribed with no server row, and the toggle lies "on" forever while
     // no notification can ever arrive.
-    if (createdHere) await sub.unsubscribe().catch(() => {});
+    if (createdHere) {
+      await sub.unsubscribe().catch((e) => console.warn('Rollback unsubscribe failed:', e));
+    }
     throw error;
   }
 

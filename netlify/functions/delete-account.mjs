@@ -51,9 +51,20 @@ export default async function handler(request) {
     fetch(`${url}/rest/v1/${path}`, { ...init, headers: { ...svc, ...(init.headers || {}) } });
 
   try {
+    // Every delete is checked: if any row removal fails we abort BEFORE
+    // destroying the auth user, so the account survives and the user can
+    // retry. Returning ok with orphaned rows would break the privacy
+    // policy's deletion promise.
+    const failures = [];
+    const del = async (path) => {
+      const res = await rest(path, { method: 'DELETE' });
+      if (!res.ok) failures.push(`${path.split('?')[0]}: HTTP ${res.status}`);
+    };
+
     // Pantries this user belongs to.
     const memRes = await rest(`pantry_members?user_id=eq.${userId}&select=pantry_id`);
-    const memberships = memRes.ok ? await memRes.json() : [];
+    if (!memRes.ok) return json(500, { message: 'Could not enumerate pantries — try again' });
+    const memberships = await memRes.json();
 
     for (const { pantry_id } of memberships) {
       const othersRes = await rest(
@@ -63,16 +74,21 @@ export default async function handler(request) {
       if (others.length === 0) {
         // Sole member: remove the pantry and everything in it.
         for (const table of ['shopping_items', 'pantry_items', 'areas', 'invite_tokens']) {
-          await rest(`${table}?pantry_id=eq.${pantry_id}`, { method: 'DELETE' });
+          await del(`${table}?pantry_id=eq.${pantry_id}`);
         }
-        await rest(`pantry_members?pantry_id=eq.${pantry_id}`, { method: 'DELETE' });
-        await rest(`pantries?id=eq.${pantry_id}`, { method: 'DELETE' });
+        await del(`pantry_members?pantry_id=eq.${pantry_id}`);
+        await del(`pantries?id=eq.${pantry_id}`);
       }
     }
 
     // The user's own rows in tables without a declared cascade.
-    await rest(`pantry_members?user_id=eq.${userId}`, { method: 'DELETE' });
-    await rest(`profiles?id=eq.${userId}`, { method: 'DELETE' });
+    await del(`pantry_members?user_id=eq.${userId}`);
+    await del(`profiles?id=eq.${userId}`);
+
+    if (failures.length > 0) {
+      console.error('delete-account: row deletes failed, aborting before auth delete:', failures);
+      return json(500, { message: 'Could not fully delete your data — nothing was removed permanently. Try again or contact support.' });
+    }
 
     // Auth user last — cascades user_preferences, push_subscriptions,
     // consumption_events, ai_usage, invite_tokens.created_by.

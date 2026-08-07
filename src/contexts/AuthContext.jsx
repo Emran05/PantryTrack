@@ -69,8 +69,11 @@ export function AuthProvider({ children }) {
     try {
       const { disablePushNotifications } = await import('../lib/push');
       await disablePushNotifications();
-    } catch {
-      // No subscription, unsupported browser, or network failure — proceed.
+    } catch (err) {
+      // No subscription, unsupported browser, or network failure — proceed,
+      // but leave a trace: a persistent failure here means this device may
+      // still receive the signed-out account's reminders.
+      console.warn('Push unsubscribe on sign-out failed:', err);
     }
     // Clear per-user local state so the next account doesn't inherit it.
     try {

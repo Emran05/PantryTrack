@@ -263,7 +263,7 @@ function schedulePushPrefs() {
 
 async function pushUserPreferences() {
   const userId = await currentUserId();
-  if (!userId) return;
+  if (!userId) return false;
 
   const { error } = await supabase.from('user_preferences').upsert({
     user_id: userId,
@@ -276,6 +276,26 @@ async function pushUserPreferences() {
   if (error) {
     if (isMissingSchema(error)) warnMissingSchema();
     else console.error('Failed to push preferences:', error);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Push prefs to the server NOW (skipping the debounce) and report whether the
+ * write landed — for flows that must not claim success before it has
+ * (the Do-Not-Sell toggle's confirmation toast).
+ */
+export async function flushPrefs() {
+  if (pushPrefsTimer) {
+    clearTimeout(pushPrefsTimer);
+    pushPrefsTimer = null;
+  }
+  try {
+    return (await pushUserPreferences()) === true;
+  } catch (err) {
+    console.error('flushPrefs failed:', err);
+    return false;
   }
 }
 

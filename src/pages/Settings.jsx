@@ -17,7 +17,7 @@ import {
   enablePushNotifications,
   disablePushNotifications,
 } from '../lib/push';
-import { isDoNotSellEffective, setDoNotSell, isGpcActive } from '../lib/preferences';
+import { isDoNotSellEffective, setDoNotSell, isGpcActive, flushPrefs } from '../lib/preferences';
 import { supabase } from '../lib/supabase';
 import './Settings.css';
 
@@ -293,11 +293,18 @@ export default function Settings() {
   const [deleteArmed, setDeleteArmed] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const handleToggleDoNotSell = () => {
+  const handleToggleDoNotSell = async () => {
     const next = !doNotSell;
     setDoNotSell(next);
     setDoNotSellUi(next);
-    showToast(next ? 'Opted out of data sale and sharing' : 'Opted back in to data sale and sharing');
+    // Don't claim success until the server write lands — the flag on this
+    // device alone doesn't stop server-side data use.
+    const synced = await flushPrefs();
+    if (synced) {
+      showToast(next ? 'Opted out of data sale and sharing' : 'Opted back in to data sale and sharing');
+    } else {
+      showToast('Saved on this device — will finish syncing to your account when you’re back online', 'info');
+    }
   };
 
   const handleDeleteAccount = async () => {
