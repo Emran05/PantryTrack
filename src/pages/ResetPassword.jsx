@@ -24,6 +24,8 @@ export default function ResetPassword() {
   // null = still checking; the token exchange resolves just after mount.
   const [isRecovery, setIsRecovery] = useState(null);
   const [email, setEmail] = useState('');
+  // Distinguishes 'bad link' from 'you're already logged in'.
+  const [signedIn, setSignedIn] = useState(false);
 
   useEffect(() => {
     // supabase-js consumes the recovery markers from the URL during its own
@@ -49,6 +51,8 @@ export default function ResetPassword() {
       mirrorFresh = Number.isFinite(t) && t > 0 && (Date.now() - t) < 15 * 60 * 1000;
     } catch { /* private mode */ }
     const hashLooksLikeRecovery = freshRecoveryMarker || mirrorFresh;
+
+    supabase.auth.getSession().then(({ data: { session } }) => setSignedIn(!!session?.user));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
@@ -103,10 +107,26 @@ export default function ResetPassword() {
 
         {isRecovery === false ? (
           <>
-            <p className="auth-subtitle">This reset link is invalid or has expired.</p>
-            <Link to="/login" className="btn btn-primary auth-submit">
-              Request a new link
-            </Link>
+            {/* Already signed in? "Request a new link" sends them to /login,
+                which bounces straight back to the app — a dead end. Offer the
+                exit that actually works (QA finding). */}
+            {signedIn ? (
+              <>
+                <p className="auth-subtitle">
+                  You&rsquo;re already signed in, so there&rsquo;s nothing to reset here.
+                </p>
+                <Link to="/" className="btn btn-primary auth-submit">
+                  Back to my pantry
+                </Link>
+              </>
+            ) : (
+              <>
+                <p className="auth-subtitle">This reset link is invalid or has expired.</p>
+                <Link to="/login" className="btn btn-primary auth-submit">
+                  Request a new link
+                </Link>
+              </>
+            )}
           </>
         ) : (
           <>
