@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { ensureProfileFromMetadata } from '../lib/supabaseStorage';
+import { syncUserPreferences } from '../lib/preferences';
 
 const AuthContext = createContext({});
 
@@ -16,14 +17,21 @@ export function AuthProvider({ children }) {
       const u = session?.user ?? null;
       setUser(u);
       setLoading(false);
-      if (u) ensureProfileFromMetadata(u);
+      if (u) {
+        ensureProfileFromMetadata(u);
+        syncUserPreferences();
+      }
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       const u = session?.user ?? null;
       setUser(u);
-      if (u) ensureProfileFromMetadata(u);
+      if (u) {
+        ensureProfileFromMetadata(u);
+        // Only on a real sign-in — not on every token refresh.
+        if (event === 'SIGNED_IN') syncUserPreferences();
+      }
     });
 
     return () => subscription.unsubscribe();

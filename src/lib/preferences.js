@@ -1,8 +1,23 @@
-// Client-side persistence helpers for prefs and event logs.
-// Backed by localStorage — single-device only. A future Supabase schema would
-// move these to per-user/per-pantry tables, but the localStorage shape is
-// designed so that migration is mechanical (each entry already has a stable id
-// and timestamp).
+// Prefs and consumption log — Supabase-backed with a localStorage cache.
+//
+// localStorage is the synchronous read layer (so components can call
+// isPinned()/getDiet()/getConsumptionLog() during render, same as always);
+// Supabase is the source of truth so pins, favorites, diet, and the
+// consumption log survive new devices and are shared where they should be
+// (the log is per-pantry — housemates see the same streak and activity feed).
+//
+// Sync model:
+//   - syncUserPreferences()      pull on login; first run pushes existing
+//                                local data up (one-time migration).
+//   - syncConsumptionLog(pantry) push any unsynced local events (client_id
+//                                dedupes retries), then pull the household log.
+//   - writes                     update the cache synchronously, then push in
+//                                the background (debounced for prefs).
+//
+// If the Supabase tables don't exist yet (migration not applied), every sync
+// degrades to localStorage-only with a console warning — nothing breaks.
+
+import { supabase } from './supabase';
 
 function safeGet(key, fallback) {
   try {
@@ -21,6 +36,38 @@ function safeSet(key, value) {
   }
 }
 
+// "relation does not exist" / "function does not exist" — migration not applied.
+function isMissingSchema(error) {
+  return error?.code === '42P01' || error?.code === 'PGRST202' || error?.code === 'PGRST205';
+}
+
+let warnedMissingSchema = false;
+function warnMissingSchema() {
+  if (warnedMissingSchema) return;
+  warnedMissingSchema = true;
+  console.warn('Supabase prefs tables missing — apply supabase/migrations to enable cross-device sync. Running localStorage-only.');
+}
+
+async function currentUserId() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    return user?.id || null;
+  } catch {
+    return null;
+  }
+}
+
+// Components that render cached prefs can listen for this to re-read after a
+// background sync lands (fired by syncUserPreferences / syncConsumptionLog).
+export const PREFS_SYNCED_EVENT = 'pantry-prefs-synced';
+function announceSync() {
+  try {
+    window.dispatchEvent(new CustomEvent(PREFS_SYNCED_EVENT));
+  } catch {
+    // non-browser context — ignore
+  }
+}
+
 // ---------- Consumption / waste log (per pantry) ----------
 
 const LOG_KEY = (pantryId) => `pantry_consumption_log_${pantryId}`;
@@ -29,14 +76,111 @@ const LOG_MAX = 500;
 // reason: 'used' | 'wasted' | 'donated' | 'other'
 export function logConsumptionEvent(pantryId, event) {
   if (!pantryId) return;
-  const arr = safeGet(LOG_KEY(pantryId), []);
-  arr.unshift({
+  const entry = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     timestamp: Date.now(),
+    synced: false,
     ...event,
-  });
+  };
+  const arr = safeGet(LOG_KEY(pantryId), []);
+  arr.unshift(entry);
   if (arr.length > LOG_MAX) arr.length = LOG_MAX;
   safeSet(LOG_KEY(pantryId), arr);
+
+  // Background push — sync callers (ConsumeModal etc.) don't wait on this.
+  // If it fails (offline, migration missing), the event stays synced:false and
+  // the next syncConsumptionLog() retries it; client_id dedupes double-sends.
+  pushEvents(pantryId, [entry]).catch(() => {});
+}
+
+function eventToRow(pantryId, userId, e) {
+  const { id, timestamp, synced, itemName, category, qty, unit, reason, ...meta } = e;
+  return {
+    pantry_id: pantryId,
+    user_id: userId,
+    client_id: id,
+    item_name: itemName || meta.name || 'item',
+    category: category || null,
+    qty: qty || 1,
+    unit: unit || null,
+    reason: ['used', 'wasted', 'donated', 'other'].includes(reason) ? reason : 'other',
+    meta,
+    created_at: new Date(timestamp).toISOString(),
+  };
+}
+
+function rowToEvent(row) {
+  return {
+    id: row.client_id || row.id,
+    timestamp: Date.parse(row.created_at),
+    synced: true,
+    userId: row.user_id,
+    itemName: row.item_name,
+    category: row.category || undefined,
+    qty: row.qty,
+    unit: row.unit || undefined,
+    reason: row.reason,
+    ...(row.meta || {}),
+  };
+}
+
+async function pushEvents(pantryId, events) {
+  if (!events.length) return;
+  const userId = await currentUserId();
+  if (!userId) return;
+
+  const rows = events.map((e) => eventToRow(pantryId, userId, e));
+  // upsert on the (pantry_id, client_id) unique index → retries are no-ops.
+  const { error } = await supabase
+    .from('consumption_events')
+    .upsert(rows, { onConflict: 'pantry_id,client_id', ignoreDuplicates: true });
+  if (error) {
+    if (isMissingSchema(error)) warnMissingSchema();
+    else console.error('Failed to sync consumption events:', error);
+    return;
+  }
+
+  const pushed = new Set(events.map((e) => e.id));
+  const arr = safeGet(LOG_KEY(pantryId), []);
+  arr.forEach((e) => {
+    if (pushed.has(e.id)) e.synced = true;
+  });
+  safeSet(LOG_KEY(pantryId), arr);
+}
+
+/**
+ * Push unsynced local events, then pull the household log into the cache.
+ * Returns the merged log (newest first). Call on Dashboard load / realtime tick.
+ */
+export async function syncConsumptionLog(pantryId) {
+  if (!pantryId) return [];
+  const local = safeGet(LOG_KEY(pantryId), []);
+
+  await pushEvents(pantryId, local.filter((e) => !e.synced));
+
+  const { data, error } = await supabase
+    .from('consumption_events')
+    .select('*')
+    .eq('pantry_id', pantryId)
+    .order('created_at', { ascending: false })
+    .limit(LOG_MAX);
+
+  if (error) {
+    if (isMissingSchema(error)) warnMissingSchema();
+    else console.error('Failed to fetch consumption log:', error);
+    return local;
+  }
+
+  const server = (data || []).map(rowToEvent);
+  // Keep local events the server doesn't know about yet (offline writes).
+  const serverIds = new Set(server.map((e) => e.id));
+  const merged = [...local.filter((e) => !e.synced && !serverIds.has(e.id)), ...server]
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, LOG_MAX);
+
+  safeSet(LOG_KEY(pantryId), merged);
+  announceSync();
+  return merged;
 }
 
 export function getConsumptionLog(pantryId, sinceTs = null) {
@@ -60,9 +204,136 @@ export function consumptionStatsLastNDays(pantryId, days = 30) {
   return { used, wasted, donated, total: used + wasted + donated, events };
 }
 
-// ---------- Pinned pantry items (per pantry) ----------
+// ---------- User preferences (pins / favorites / diet) ----------
 
 const PIN_KEY = (pantryId) => `pantry_pinned_${pantryId}`;
+const FAV_KEY = 'pantry_recipe_favorites';
+const DIET_KEY = 'pantry_diet';
+const PREFS_MIGRATED_KEY = 'pantry_prefs_migrated';
+
+// Collect every local pin list into the server shape { pantryId: [itemIds] }.
+function collectLocalPins() {
+  const pins = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('pantry_pinned_')) {
+        const pantryId = key.slice('pantry_pinned_'.length);
+        const ids = safeGet(key, []);
+        if (Array.isArray(ids) && ids.length) pins[pantryId] = ids;
+      }
+    }
+  } catch {
+    // localStorage unavailable
+  }
+  return pins;
+}
+
+let pushPrefsTimer = null;
+
+// Debounced whole-row upsert — pins toggle in quick bursts.
+function schedulePushPrefs() {
+  if (pushPrefsTimer) clearTimeout(pushPrefsTimer);
+  pushPrefsTimer = setTimeout(() => {
+    pushPrefsTimer = null;
+    pushUserPreferences().catch(() => {});
+  }, 800);
+}
+
+async function pushUserPreferences() {
+  const userId = await currentUserId();
+  if (!userId) return;
+
+  const { error } = await supabase.from('user_preferences').upsert({
+    user_id: userId,
+    diet: getDiet(),
+    favorite_recipes: getFavoriteRecipeIds(),
+    pinned_items: collectLocalPins(),
+    updated_at: new Date().toISOString(),
+  });
+  if (error) {
+    if (isMissingSchema(error)) warnMissingSchema();
+    else console.error('Failed to push preferences:', error);
+  }
+}
+
+/**
+ * Pull server prefs into the local cache. First sync for a user with no server
+ * row pushes the local state up instead (one-time device → cloud migration).
+ * Call once after login (AuthContext does this).
+ */
+export async function syncUserPreferences() {
+  const userId = await currentUserId();
+  if (!userId) return;
+
+  const { data, error } = await supabase
+    .from('user_preferences')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingSchema(error)) warnMissingSchema();
+    else console.error('Failed to fetch preferences:', error);
+    return;
+  }
+
+  if (!data) {
+    // No cloud row yet — this device's state becomes the starting point.
+    await pushUserPreferences();
+    safeSet(PREFS_MIGRATED_KEY, true);
+    return;
+  }
+
+  const serverDiet = data.diet || 'all';
+  const serverFavs = Array.isArray(data.favorite_recipes) ? data.favorite_recipes : [];
+  const serverPins = data.pinned_items && typeof data.pinned_items === 'object' ? data.pinned_items : {};
+
+  // First sync on THIS device merges the local state up instead of discarding
+  // it — otherwise a user with favorites/pins on two devices loses whichever
+  // device syncs second. After that, the server is canonical (server-wins),
+  // since realtime edits elsewhere should replace, not re-merge, stale locals.
+  const alreadyMigrated = safeGet(PREFS_MIGRATED_KEY, false) === true;
+
+  if (!alreadyMigrated) {
+    const mergedFavs = [...new Set([...serverFavs, ...getFavoriteRecipeIds()])];
+    // Prefer a non-default diet; server wins when both are set.
+    const mergedDiet = serverDiet !== 'all' ? serverDiet : getDiet();
+
+    const localPins = collectLocalPins();
+    const mergedPins = { ...serverPins };
+    for (const [pantryId, ids] of Object.entries(localPins)) {
+      mergedPins[pantryId] = [...new Set([...(mergedPins[pantryId] || []), ...ids])];
+    }
+
+    writeLocalPrefs(mergedDiet, mergedFavs, mergedPins);
+    safeSet(PREFS_MIGRATED_KEY, true);
+    await pushUserPreferences(); // push the merged result back up
+    announceSync();
+    return;
+  }
+
+  writeLocalPrefs(serverDiet, serverFavs, serverPins);
+  safeSet(PREFS_MIGRATED_KEY, true);
+  announceSync();
+}
+
+// Overwrite the local cache with a resolved pref set. Only touches pantry pin
+// keys the payload mentions — pins for pantries not in the object are left
+// alone (they'll upload on the next toggle).
+function writeLocalPrefs(diet, favorites, pins) {
+  try {
+    localStorage.setItem(DIET_KEY, diet || 'all');
+  } catch {
+    // ignore
+  }
+  safeSet(FAV_KEY, Array.isArray(favorites) ? favorites : []);
+  for (const [pantryId, ids] of Object.entries(pins || {})) {
+    if (Array.isArray(ids)) safeSet(PIN_KEY(pantryId), ids);
+  }
+}
+
+// ---------- Pinned pantry items (per pantry) ----------
 
 export function getPinnedIds(pantryId) {
   if (!pantryId) return [];
@@ -79,6 +350,7 @@ export function togglePin(pantryId, itemId) {
   if (idx >= 0) ids.splice(idx, 1);
   else ids.push(itemId);
   safeSet(PIN_KEY(pantryId), ids);
+  schedulePushPrefs();
   return idx < 0;
 }
 
@@ -87,13 +359,14 @@ export function reconcilePins(pantryId, liveItemIds) {
   const ids = getPinnedIds(pantryId);
   const live = new Set(liveItemIds);
   const filtered = ids.filter((id) => live.has(id));
-  if (filtered.length !== ids.length) safeSet(PIN_KEY(pantryId), filtered);
+  if (filtered.length !== ids.length) {
+    safeSet(PIN_KEY(pantryId), filtered);
+    schedulePushPrefs();
+  }
   return filtered;
 }
 
 // ---------- Recipe favorites (global, not per pantry) ----------
-
-const FAV_KEY = 'pantry_recipe_favorites';
 
 export function getFavoriteRecipeIds() {
   return safeGet(FAV_KEY, []);
@@ -109,12 +382,12 @@ export function toggleFavoriteRecipe(recipeId) {
   if (idx >= 0) ids.splice(idx, 1);
   else ids.push(recipeId);
   safeSet(FAV_KEY, ids);
+  schedulePushPrefs();
   return idx < 0;
 }
 
 // ---------- Diet preference (global) ----------
 
-const DIET_KEY = 'pantry_diet';
 export const DIETS = [
   { id: 'all', label: 'All' },
   { id: 'vegetarian', label: 'Vegetarian' },
@@ -137,4 +410,5 @@ export function setDiet(diet) {
   } catch {
     // ignore
   }
+  schedulePushPrefs();
 }

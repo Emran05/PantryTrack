@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getPantryItems } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
 import { CATEGORIES, getExpirationStatus, getDaysUntilExpiration, getCategoryInfo } from '../lib/helpers';
-import { getConsumptionLog, consumptionStatsLastNDays } from '../lib/preferences';
+import { getConsumptionLog, consumptionStatsLastNDays, syncConsumptionLog } from '../lib/preferences';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useToast } from '../components/ToastContext';
 import './Dashboard.css';
@@ -148,6 +148,21 @@ export default function Dashboard() {
 
   useRealtimeSync(activePantry?.id, 'pantry_items', fetchItems);
 
+  // Household consumption log: pull from Supabase (and push any offline
+  // events), then bump a tick so the stats memo recomputes from the fresh
+  // cache. Realtime keeps the feed live when a housemate logs something.
+  const [logTick, setLogTick] = useState(0);
+  const refreshLog = useCallback(() => {
+    if (!activePantry?.id) return;
+    syncConsumptionLog(activePantry.id).then(() => setLogTick((t) => t + 1));
+  }, [activePantry?.id]);
+
+  useEffect(() => {
+    refreshLog();
+  }, [refreshLog]);
+
+  useRealtimeSync(activePantry?.id, 'consumption_events', refreshLog);
+
   const handleHighlightClick = (cardId) => {
     setAnimatedCard(cardId);
     setTimeout(() => setAnimatedCard(null), 600);
@@ -220,7 +235,9 @@ export default function Dashboard() {
     }));
 
     return { total, expired, expiringSoon, fresh, categories, upcomingExpiry, streakDays, savedEstimate, usedLast30, recentActivity, addedThisWeek, donutSegments };
-  }, [items, activePantry]);
+    // logTick: recompute when a consumption-log sync lands (cache re-read)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, activePantry, logTick]);
 
   if (loading) {
     return (

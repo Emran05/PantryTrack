@@ -65,6 +65,12 @@
   display: none;
 }
 
+.scan-capture-buttons {
+  display: flex;
+  gap: var(--space-md);
+  margin-top: var(--space-sm);
+}
+
 /* ---- Preview ---- */
 .scan-preview {
   position: relative;

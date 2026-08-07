@@ -1,24 +1,24 @@
-// Direct Gemini API client. Used because the Supabase edge functions
-// `process-receipt` and `suggest-recipes` aren't versioned in this repo and
-// were producing failures end-to-end.
-//
-// Two key tiers, in order of preference:
-//   1. user key  — localStorage 'pantry_gemini_key', set in Settings → AI
-//   2. project key — import.meta.env.VITE_GEMINI_API_KEY (build-time .env)
+// Gemini client with two tiers, in order of preference:
+//   1. user key — localStorage 'pantry_gemini_key', set in Settings → AI.
+//      Calls Google directly from the browser; the key never leaves the device.
+//   2. proxy    — POST /api/gemini (netlify/functions/gemini.mjs), which holds
+//      the shared key server-side and enforces per-user quotas. This replaced
+//      the old VITE_GEMINI_API_KEY "project key" that was inlined into the
+//      client bundle — no key ships to visitors anymore.
 //
 // callGeminiWithFallback() tries the user key first. On GEMINI_BAD_KEY (401/403)
-// or GEMINI_RATE_LIMIT (429), it transparently retries against the project key
-// and returns { text, tier, fellBack: true } so the caller can surface a notice.
-//
-// Security note: the key is exposed in the client bundle / devtools. That's
-// acceptable for a personal-use tier (Google AI Studio free tier is rate-
-// limited server-side) but not for a public production build with paid keys.
-// When this app moves to a real edge function, point the calls below at it.
+// or GEMINI_RATE_LIMIT (429), it transparently retries against the proxy and
+// returns { text, tier, fellBack: true } so the caller can surface a notice.
+// The tier keeps the historical name 'project' so rate-limit buckets and
+// Settings accounting stay unchanged.
+
+import { supabase } from './supabase';
 
 // gemini-2.5-flash is the current GA flash model. We do NOT use *-pro because
 // flash is fast enough for short prompts (recipes / receipts) and pro burns
 // quota much faster on the free tier. `gemini-flash-latest` would auto-track
 // the newest flash, but it's been less reliable (frequent 503s), so we pin.
+// The proxy has its own copy of this default (GEMINI_MODEL env overrides it).
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 
 function getModel() {
@@ -38,12 +38,13 @@ export function getUserKey() {
   }
 }
 
-export function getProjectKey() {
-  return import.meta.env.VITE_GEMINI_API_KEY || null;
-}
+// The shared tier is the proxy function deployed alongside the site. It's
+// assumed present in production; VITE_DISABLE_AI_PROXY=true turns it off for
+// plain `vite dev` where no function is running (use `netlify dev` to get one).
+const PROXY_PATH = import.meta.env.VITE_AI_PROXY_URL || '/api/gemini';
 
-export function getApiKey() {
-  return getUserKey() || getProjectKey();
+export function hasProxy() {
+  return import.meta.env.VITE_DISABLE_AI_PROXY !== 'true';
 }
 
 export function setUserApiKey(key) {
@@ -59,20 +60,21 @@ export function setUserApiKey(key) {
 }
 
 export function hasApiKey() {
-  return !!(getUserKey() || getProjectKey());
+  return !!getUserKey() || hasProxy();
 }
 
 export function hasUserKey() {
   return !!getUserKey();
 }
 
+// Historical name — "project" now means the server-side proxy tier.
 export function hasProjectKey() {
-  return !!getProjectKey();
+  return hasProxy();
 }
 
 export function getKeySource() {
   if (getUserKey()) return 'user';
-  if (getProjectKey()) return 'project';
+  if (hasProxy()) return 'project';
   return null;
 }
 
@@ -174,25 +176,78 @@ async function callGeminiOnce(parts, generationConfig, key) {
   return text;
 }
 
-// Errors that indicate the key itself is the problem — safe to retry against
-// the project key. Network errors and 5xx don't fall back; 5xx affects both
+// Shared-tier attempt via the serverless proxy. The proxy returns the same
+// error codes as callGeminiOnce (plus PROXY_* for its own auth/config states),
+// so callers' banner logic doesn't need new cases.
+async function callGeminiProxy(feature, parts, generationConfig) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) {
+    throw new GeminiError('Sign in to use AI features', 'PROXY_AUTH');
+  }
+
+  let res;
+  try {
+    res = await fetch(PROXY_PATH, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ feature, parts, generationConfig }),
+    });
+  } catch (err) {
+    throw new GeminiError('Network error calling the AI service', 'GEMINI_NETWORK', { cause: err });
+  }
+
+  let body = null;
+  try {
+    body = await res.json();
+  } catch {
+    // Non-JSON body (e.g. a 404 HTML page from `vite dev` with no function)
+  }
+
+  if (!res.ok) {
+    if (res.status === 404 && !body?.code) {
+      throw new GeminiError(
+        'AI service not reachable — running locally? Use `netlify dev`, or add your own key in Settings.',
+        'PROXY_UNAVAILABLE',
+        { status: 404 }
+      );
+    }
+    throw new GeminiError(
+      body?.message || `AI service error ${res.status}`,
+      body?.code || 'GEMINI_HTTP_ERROR',
+      { status: res.status, retryDelaySeconds: body?.retryDelaySeconds ?? null }
+    );
+  }
+
+  if (!body?.text) {
+    throw new GeminiError('AI service returned empty text', 'GEMINI_EMPTY');
+  }
+  return body.text;
+}
+
+// Errors that indicate the user's key itself is the problem — safe to retry
+// against the proxy. Network errors and 5xx don't fall back; 5xx affects both
 // tiers equally and a network error means the user has no internet.
 const FALLBACKABLE_CODES = new Set(['GEMINI_BAD_KEY', 'GEMINI_RATE_LIMIT']);
 
 /**
- * Try the user key first; fall back to the project key on key/quota errors.
+ * Try the user key first (direct to Google); fall back to the server-side
+ * proxy on key/quota errors.
  *
  * @param {Array} parts  Gemini request parts
  * @param {object} generationConfig
- * @param {object} opts  { skipUser?: boolean }  // caller can force project tier
+ * @param {object} opts  { skipUser?: boolean, feature?: 'receipts'|'recipes' }
  * @returns {Promise<{ text: string, tier: 'user'|'project', fellBack: boolean }>}
  */
 export async function callGeminiWithFallback(parts, generationConfig = {}, opts = {}) {
-  const { skipUser = false } = opts;
+  const { skipUser = false, feature = 'recipes' } = opts;
   const userKey = skipUser ? null : getUserKey();
-  const projectKey = getProjectKey();
+  const proxyAvailable = hasProxy();
 
-  if (!userKey && !projectKey) {
+  if (!userKey && !proxyAvailable) {
     throw new GeminiError('Gemini API key not configured', 'NO_API_KEY');
   }
 
@@ -202,17 +257,13 @@ export async function callGeminiWithFallback(parts, generationConfig = {}, opts 
       const text = await callGeminiOnce(parts, generationConfig, userKey);
       return { text, tier: 'user', fellBack: false };
     } catch (err) {
-      if (!projectKey || !FALLBACKABLE_CODES.has(err.code)) throw err;
-      // Fall through to project key — caller will see fellBack: true.
-      console.warn(`User Gemini key failed (${err.code}), falling back to project key`);
+      if (!proxyAvailable || !FALLBACKABLE_CODES.has(err.code)) throw err;
+      // Fall through to the proxy — caller will see fellBack: true.
+      console.warn(`User Gemini key failed (${err.code}), falling back to the shared tier`);
     }
   }
 
-  if (!projectKey) {
-    throw new GeminiError('Gemini API key not configured', 'NO_API_KEY');
-  }
-
-  const text = await callGeminiOnce(parts, generationConfig, projectKey);
+  const text = await callGeminiProxy(feature, parts, generationConfig);
   return { text, tier: 'project', fellBack: !!userKey && !skipUser };
 }
 
@@ -279,7 +330,7 @@ Rules:
   const result = await callGeminiWithFallback(
     [{ text: prompt }],
     { temperature: 0.7, responseMimeType: 'application/json' },
-    tierOpts
+    { ...tierOpts, feature: 'recipes' }
   );
   const recipes = parseJsonStrict(result.text);
   if (!Array.isArray(recipes)) {
@@ -339,7 +390,7 @@ Rules:
   const result = await callGeminiWithFallback(
     [{ text: prompt }],
     { temperature: 0.2, responseMimeType: 'application/json' },
-    tierOpts
+    { ...tierOpts, feature: 'receipts' }
   );
   const items = parseJsonStrict(result.text);
   if (!Array.isArray(items)) {
@@ -388,7 +439,7 @@ Rules:
       { inline_data: { mime_type: mimeType, data: imageBase64 } },
     ],
     { temperature: 0.2, responseMimeType: 'application/json' },
-    tierOpts
+    { ...tierOpts, feature: 'receipts' }
   );
   const items = parseJsonStrict(result.text);
   if (!Array.isArray(items)) {

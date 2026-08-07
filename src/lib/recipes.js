@@ -174,25 +174,43 @@ export function recipeKey(recipe) {
     .replace(/^-+|-+$/g, '');
 }
 
-// Ingredient keywords that disqualify a recipe per diet. Substring match on
-// lowercase ingredient names — defense in depth on top of the diet line we
-// pass to Gemini (the model occasionally cheats).
+// Ingredient keywords that disqualify a recipe per diet — defense in depth on
+// top of the diet line we pass to Gemini (the model occasionally cheats).
+// Matched on word boundaries, after DIET_ALLOW phrases are stripped, so
+// "coconut milk" doesn't fail dairy-free and "eggplant" doesn't fail vegan.
 const DIET_BLOCK = {
-  vegetarian: ['ground beef', 'chicken', 'beef', 'pork', 'bacon', 'turkey', 'fish', 'salmon', 'tuna', 'shrimp', 'meat', 'ham', 'sausage', 'pepperoni'],
-  vegan: ['ground beef', 'chicken', 'beef', 'pork', 'bacon', 'turkey', 'fish', 'salmon', 'tuna', 'shrimp', 'meat', 'ham', 'sausage', 'pepperoni', 'milk', 'cheese', 'cheddar', 'mozzarella', 'parmesan', 'yogurt', 'butter', 'cream', 'egg', 'honey'],
+  vegetarian: ['ground beef', 'chicken', 'beef', 'steak', 'pork', 'bacon', 'turkey', 'fish', 'salmon', 'tuna', 'shrimp', 'meat', 'meatball', 'meatballs', 'lamb', 'ham', 'sausage', 'pepperoni'],
+  vegan: ['ground beef', 'chicken', 'beef', 'steak', 'pork', 'bacon', 'turkey', 'fish', 'salmon', 'tuna', 'shrimp', 'meat', 'meatball', 'meatballs', 'lamb', 'ham', 'sausage', 'pepperoni', 'milk', 'buttermilk', 'cheese', 'cheddar', 'mozzarella', 'parmesan', 'yogurt', 'butter', 'ghee', 'cream', 'egg', 'eggs', 'mayo', 'mayonnaise', 'honey'],
   glutenfree: ['bread', 'pasta', 'flour', 'tortillas', 'tortilla', 'pita', 'cereal', 'noodles', 'couscous', 'crackers', 'soy sauce'],
-  dairyfree: ['milk', 'cheese', 'cheddar', 'mozzarella', 'parmesan', 'yogurt', 'butter', 'cream', 'sour cream'],
+  dairyfree: ['milk', 'buttermilk', 'cheese', 'cheddar', 'mozzarella', 'parmesan', 'yogurt', 'butter', 'ghee', 'cream', 'sour cream'],
 };
+
+// Phrases that neutralize a blocked keyword they contain — stripped from the
+// ingredient text before the block check runs. "peanut butter" is vegan even
+// though "butter" isn't; "oat milk" is dairy-free even though "milk" isn't.
+const PLANT_SWAPS = ['almond milk', 'oat milk', 'soy milk', 'coconut milk', 'rice milk', 'cashew milk', 'plant milk', 'peanut butter', 'almond butter', 'cashew butter', 'nut butter', 'vegan butter', 'plant butter', 'cocoa butter', 'vegan cheese', 'coconut cream', 'coconut yogurt', 'vegan mayo', 'egg replacer', 'flax egg'];
+const DIET_ALLOW = {
+  vegetarian: [],
+  vegan: PLANT_SWAPS,
+  dairyfree: PLANT_SWAPS,
+  glutenfree: ['gluten-free bread', 'gluten free bread', 'gluten-free pasta', 'gluten free pasta', 'rice noodles', 'corn tortilla', 'corn tortillas'],
+};
+
+function ingredientViolatesDiet(ingredient, diet) {
+  const blocked = DIET_BLOCK[diet];
+  if (!blocked || blocked.length === 0) return false;
+  let text = String(ingredient).toLowerCase();
+  for (const phrase of DIET_ALLOW[diet] || []) {
+    text = text.split(phrase).join(' ');
+  }
+  return blocked.some((b) => new RegExp(`\\b${b}\\b`).test(text));
+}
 
 export function filterRecipesByDiet(recipes, diet) {
   if (!diet || diet === 'all') return recipes;
-  const blocked = DIET_BLOCK[diet];
-  if (!blocked || blocked.length === 0) return recipes;
+  if (!DIET_BLOCK[diet]) return recipes;
   return recipes.filter((r) =>
-    !(r.ingredients || []).some((ing) => {
-      const lower = String(ing).toLowerCase();
-      return blocked.some((b) => lower.includes(b));
-    })
+    !(r.ingredients || []).some((ing) => ingredientViolatesDiet(ing, diet))
   );
 }
 

@@ -4,7 +4,7 @@ import { getPantryItems, addShoppingItem } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
 import { getRecipeSuggestions, getAIRecipeSuggestions, filterRecipesByDiet, recipeKey } from '../lib/recipes';
 import { getExpirationStatus, getDaysUntilExpiration } from '../lib/helpers';
-import { getDiet, setDiet, DIETS, getFavoriteRecipeIds, toggleFavoriteRecipe } from '../lib/preferences';
+import { getDiet, setDiet, DIETS, getFavoriteRecipeIds, toggleFavoriteRecipe, PREFS_SYNCED_EVENT } from '../lib/preferences';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useToast } from '../components/ToastContext';
 import CookThisModal from '../components/CookThisModal';
@@ -47,6 +47,17 @@ export default function Recipes() {
   }, [fetchItems]);
 
   useRealtimeSync(activePantry?.id, 'pantry_items', fetchItems);
+
+  // Cloud prefs can land after first paint (new device) — re-read favorites
+  // and the diet chip.
+  useEffect(() => {
+    const handler = () => {
+      setFavTick((t) => t + 1);
+      setDietState(getDiet());
+    };
+    window.addEventListener(PREFS_SYNCED_EVENT, handler);
+    return () => window.removeEventListener(PREFS_SYNCED_EVENT, handler);
+  }, []);
 
   // Local recipe suggestions (instant)
   const localSuggestions = useMemo(() => getRecipeSuggestions(items), [items]);

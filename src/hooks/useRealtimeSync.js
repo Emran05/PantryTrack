@@ -23,14 +23,38 @@ export function useRealtimeSync(pantryId, table, onRefresh) {
       .channel(`live_${table}_${pantryId}`)
       .on(
         'postgres_changes',
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: table, 
-          filter: `pantry_id=eq.${pantryId}` 
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: table,
+          filter: `pantry_id=eq.${pantryId}`
         },
         () => {
           callbackRef.current(); // Uses ref — no stale closure
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: table,
+          filter: `pantry_id=eq.${pantryId}`
+        },
+        () => {
+          callbackRef.current();
+        }
+      )
+      .on(
+        'postgres_changes',
+        // DELETE payloads only carry the old row's primary key (unless the table
+        // has REPLICA IDENTITY FULL), so a pantry_id filter silently drops every
+        // delete event. Subscribe unfiltered and just refetch — the refetch is
+        // already scoped to the active pantry, so a cross-pantry delete costs one
+        // harmless extra query.
+        { event: 'DELETE', schema: 'public', table: table },
+        () => {
+          callbackRef.current();
         }
       )
       .subscribe();

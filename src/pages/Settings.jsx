@@ -8,6 +8,15 @@ import { resetTourFlag } from '../components/Tour';
 import ThemePicker from '../components/ThemePicker';
 import { setUserApiKey, getKeySource, hasUserKey, hasProjectKey } from '../lib/gemini';
 import { getRateLimitStatus } from '../lib/rateLimit';
+import { createInviteLink, isMissingInviteSchema } from '../lib/invites';
+import {
+  isPushSupported,
+  isPushConfigured,
+  getNotificationPermission,
+  getExistingSubscription,
+  enablePushNotifications,
+  disablePushNotifications,
+} from '../lib/push';
 import './Settings.css';
 
 export default function Settings() {
@@ -19,6 +28,9 @@ export default function Settings() {
   const [profile, setProfile] = useState({ first_name: '', last_name: '', venmo_handle: '' });
   const [newHomeName, setNewHomeName] = useState('');
   const [joinHomeId, setJoinHomeId] = useState('');
+  // When set, shown in a selectable field so the user can copy manually if the
+  // clipboard API is unavailable (iOS Safari blocks writes after an await).
+  const [inviteUrl, setInviteUrl] = useState('');
   const [areas, setAreas] = useState([]);
   const [newAreaName, setNewAreaName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -181,6 +193,74 @@ export default function Settings() {
       .catch(() => showToast('Could not copy — try manually selecting the ID', 'error'));
   };
 
+  const handleCopyInviteLink = async () => {
+    if (!activePantry) return;
+    setLoading(true);
+    setInviteUrl('');
+    // Two separate failure domains: creating the link (network / missing
+    // migration) vs copying it (Safari rejects clipboard writes that follow an
+    // await). Only the first is a real error; for the second, surface the URL.
+    let url;
+    try {
+      ({ url } = await createInviteLink(activePantry.id));
+    } catch (err) {
+      console.error('Invite link failed:', err);
+      setLoading(false);
+      if (isMissingInviteSchema(err)) {
+        showToast('Invite links need the database migration — share the Home ID below for now', 'info');
+      } else {
+        showToast('Could not create invite link', 'error');
+      }
+      return;
+    }
+
+    setInviteUrl(url); // always show it for manual copy
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Invite link copied — valid for 7 days');
+    } catch {
+      showToast('Invite link ready — copy it below', 'info');
+    }
+    setLoading(false);
+  };
+
+  // Push notifications — permission + this-browser subscription state.
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const pushSupported = isPushSupported() && isPushConfigured();
+
+  useEffect(() => {
+    if (!pushSupported) return;
+    getExistingSubscription()
+      .then((sub) => setPushEnabled(!!sub))
+      .catch(() => {});
+  }, [pushSupported]);
+
+  const handleTogglePush = async () => {
+    setPushBusy(true);
+    try {
+      if (pushEnabled) {
+        await disablePushNotifications();
+        setPushEnabled(false);
+        showToast('Expiry reminders turned off on this device');
+      } else {
+        await enablePushNotifications();
+        setPushEnabled(true);
+        showToast('You\'ll get a heads-up before food expires 🎉');
+      }
+    } catch (err) {
+      console.error('Push toggle failed:', err);
+      if (err.code === 'PUSH_DENIED') {
+        showToast('Notifications are blocked — allow them in your browser settings', 'error');
+      } else if (err.code === 'PUSH_NO_SW') {
+        showToast('Reminders only work in the installed / production app', 'info');
+      } else {
+        showToast('Could not update notification settings', 'error');
+      }
+    }
+    setPushBusy(false);
+  };
+
   const handleJoinHome = async (e) => {
     e.preventDefault();
     const id = joinHomeId.trim();
@@ -332,18 +412,65 @@ export default function Settings() {
           <div className="settings-section">
             <h3 className="settings-section-title">Share {activePantry.name}</h3>
             <div className="settings-card card">
-              <p className="settings-desc">Share your Home ID with roommates or family. They paste it in the "Join a Home" section below.</p>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <code style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-secondary)', fontSize: '0.78rem', overflowX: 'auto', whiteSpace: 'nowrap' }}>
-                  {activePantry.id}
-                </code>
-                <button className="btn btn-primary" onClick={handleCopyHomeId} style={{ flexShrink: 0 }}>
-                  Copy ID
-                </button>
-              </div>
+              <p className="settings-desc">Send roommates or family a link — they tap it, sign in, and they're in.</p>
+              <button className="btn btn-primary btn-full" onClick={handleCopyInviteLink} disabled={loading}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                </svg>
+                Copy invite link
+              </button>
+              {inviteUrl && (
+                <input
+                  type="text"
+                  readOnly
+                  value={inviteUrl}
+                  onFocus={(e) => e.target.select()}
+                  style={{ width: '100%', marginTop: '8px', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-secondary)', fontSize: '0.78rem' }}
+                />
+              )}
+              <details style={{ marginTop: '12px' }}>
+                <summary className="settings-desc" style={{ cursor: 'pointer' }}>Or share your Home ID manually</summary>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
+                  <code style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-secondary)', fontSize: '0.78rem', overflowX: 'auto', whiteSpace: 'nowrap' }}>
+                    {activePantry.id}
+                  </code>
+                  <button className="btn btn-secondary" onClick={handleCopyHomeId} style={{ flexShrink: 0 }}>
+                    Copy ID
+                  </button>
+                </div>
+              </details>
             </div>
           </div>
         )}
+
+        <div className="settings-section">
+          <h3 className="settings-section-title">Notifications</h3>
+          <div className="settings-card card">
+            <p className="settings-desc">
+              Get a heads-up on this device before your food expires — a daily
+              nudge like &ldquo;milk expires tomorrow.&rdquo;
+            </p>
+            {pushSupported ? (
+              <button
+                className={`btn ${pushEnabled ? 'btn-secondary' : 'btn-primary'} btn-full`}
+                onClick={handleTogglePush}
+                disabled={pushBusy}
+                style={{ marginTop: '12px' }}
+              >
+                {pushBusy ? '...' : pushEnabled ? 'Turn off expiry reminders' : 'Turn on expiry reminders'}
+              </button>
+            ) : (
+              <p className="settings-desc" style={{ marginTop: '12px', fontStyle: 'italic' }}>
+                {isPushSupported()
+                  ? 'Not configured for this build yet.'
+                  : getNotificationPermission() === 'denied'
+                    ? 'Notifications are blocked for this site in your browser settings.'
+                    : 'This browser doesn’t support push notifications yet. On iPhone, add the app to your Home Screen first, then reopen it here.'}
+              </p>
+            )}
+          </div>
+        </div>
 
         <div className="settings-section">
           <h3 className="settings-section-title">Join a Home</h3>
@@ -416,7 +543,7 @@ export default function Settings() {
           <h3 className="settings-section-title">AI</h3>
           <div className="settings-card card">
             <p className="settings-desc">
-              AI recipe suggestions and receipt scanning use Google Gemini. We try your personal key first; if it's missing or rejected, we fall back to a shared free-tier key.
+              AI recipe suggestions and receipt scanning use Google Gemini. We try your personal key first; if it's missing or rejected, we fall back to the app's shared free tier, which runs on our server — no setup needed.
             </p>
 
             {/* Tier status pills */}
@@ -437,8 +564,8 @@ export default function Settings() {
                   <span className="ai-tier-name">Free tier</span>
                   <span className="ai-tier-sub">
                     {projectKeySet
-                      ? userKeySet ? 'Standby — used if your key fails' : 'In use — limited quota'
-                      : 'Not configured by site'}
+                      ? userKeySet ? 'Standby — used if your key fails' : 'In use — hourly limits apply'
+                      : 'Disabled in this build'}
                   </span>
                 </div>
                 <span className={`ai-status-pill ${projectKeySet ? 'ok' : 'warn'}`}>

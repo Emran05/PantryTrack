@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PantryProvider, usePantry } from './contexts/PantryContext';
 import { ToastProvider } from './components/ToastContext';
@@ -11,6 +11,12 @@ import Tour, { isTourCompleted } from './components/Tour';
 import WhatsNew, { shouldShowWhatsNew, markWhatsNewSeen } from './components/WhatsNew';
 import Landing from './pages/Landing';
 import Auth from './pages/Auth';
+// Eager, not lazy: these render in the unauthenticated route set too, which
+// has no Suspense boundary — and deep links (recovery emails, invites) should
+// never hit a loading race.
+import ResetPassword from './pages/ResetPassword';
+import JoinPantry from './pages/JoinPantry';
+import { PENDING_INVITE_KEY } from './lib/invites';
 import './components/Toast.css';
 
 // Lazy-loaded pages for code splitting (authenticated routes only)
@@ -35,8 +41,25 @@ function PageTransitionWrapper({ children }) {
 function AppContent() {
   const { user } = useAuth();
   const { loading } = usePantry();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [showTour, setShowTour] = useState(false);
   const [showWhatsNew, setShowWhatsNew] = useState(false);
+
+  // Resume an invite that was opened while signed out: JoinPantry stashed the
+  // token, auth completed, now finish the join.
+  useEffect(() => {
+    if (!user || loading) return;
+    let pending = null;
+    try {
+      pending = sessionStorage.getItem(PENDING_INVITE_KEY);
+    } catch {
+      return;
+    }
+    if (pending && !location.pathname.startsWith('/join/')) {
+      navigate(`/join/${pending}`, { replace: true });
+    }
+  }, [user, loading, location.pathname, navigate]);
 
   // Check tour status when user arrives at the authenticated shell.
   // New users get the tour (which already covers the new features); returning
@@ -74,6 +97,8 @@ function AppContent() {
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Auth />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/join/:token" element={<JoinPantry />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
@@ -100,6 +125,8 @@ function AppContent() {
             <Route path="/scan" element={<ScanReceipt />} />
             <Route path="/recipes" element={<Recipes />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/join/:token" element={<JoinPantry />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </PageTransitionWrapper>

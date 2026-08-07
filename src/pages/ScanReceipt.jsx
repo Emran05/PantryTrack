@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { addPantryItem, processReceiptText, processReceiptImage } from '../lib/supabaseStorage';
+import { importReceiptItems, processReceiptText, processReceiptImage } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
 import { CATEGORIES, UNITS, getDefaultExpirationDate } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
@@ -12,10 +12,65 @@ import './ScanReceipt.css';
 // as "OCR couldn't read the receipt" and try Gemini Vision on the original image.
 const OCR_MIN_TEXT_CHARS = 40;
 
+// Downscale before persisting/sending. A raw phone photo (~4000px, 4-8MB)
+// blows past sessionStorage quota and Netlify's 6MB function-body limit on the
+// vision path; ~2000px JPEG is still crisp enough for OCR and Gemini vision.
+const MAX_IMAGE_DIM = 2000;
+const JPEG_QUALITY = 0.85;
+
+// Returns { dataUrl, base64, mimeType }. Falls back to the raw FileReader
+// result if the canvas path fails (very old browser, decode error).
+function loadAndDownscale(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error || new Error('Could not read file'));
+    reader.onload = (ev) => {
+      const rawDataUrl = ev.target.result;
+      const rawMime = rawDataUrl.substring(rawDataUrl.indexOf(':') + 1, rawDataUrl.indexOf(';'));
+      const fallback = () => resolve({
+        dataUrl: rawDataUrl,
+        base64: rawDataUrl.substring(rawDataUrl.indexOf(',') + 1),
+        mimeType: rawMime,
+      });
+
+      const img = new Image();
+      img.onerror = fallback;
+      img.onload = () => {
+        try {
+          const scale = Math.min(1, MAX_IMAGE_DIM / Math.max(img.width, img.height));
+          if (scale >= 1) return fallback(); // already small enough — keep original
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+          resolve({
+            dataUrl,
+            base64: dataUrl.substring(dataUrl.indexOf(',') + 1),
+            mimeType: 'image/jpeg',
+          });
+        } catch {
+          fallback();
+        }
+      };
+      img.src = rawDataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function ScanReceipt() {
   const navigate = useNavigate();
   const { activePantry } = usePantry();
-  const fileInputRef = useRef(null);
+  // Two inputs because `capture` is all-or-nothing: with it, iOS Safari and
+  // Android Chrome jump straight to the camera and never offer the photo
+  // library; without it, there's no one-tap camera. So: one input each.
+  const cameraInputRef = useRef(null);
+  const uploadInputRef = useRef(null);
+  // Last captured scan, kept in memory so "Try again" survives a failed
+  // sessionStorage persist (large photo → quota) and the 10-min blob expiry.
+  const pendingRef = useRef(null);
   const [preview, setPreview] = useState(null);
   const [parsedItems, setParsedItems] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -93,21 +148,19 @@ export default function ScanReceipt() {
       writePendingScan({ parsedItems: enriched });
     } catch (err) {
       console.error('Receipt parse failed:', err);
-      const banneredCodes = ['NO_API_KEY', 'GEMINI_BAD_KEY', 'RATE_LIMITED', 'GEMINI_RATE_LIMIT'];
-      if (banneredCodes.includes(err.code)) {
-        let message = err.message;
-        if (err.code === 'GEMINI_RATE_LIMIT') {
-          const wait = err.retryDelaySeconds
-            ? `try again in ${err.retryDelaySeconds}s`
-            : 'try again in a moment';
-          message = `Google throttled the request — ${wait}. Add your own key in Settings for more headroom.`;
-        }
-        setScanError({ code: err.code, message, resetLabel: err.resetLabel });
-      } else {
-        showToast('Failed to parse receipt. Please try again.', 'error');
+      // Keep the photo and the persisted scan blob — a retry reuses them (and
+      // skips OCR entirely if it already succeeded). Discarding here forced a
+      // full re-capture even when the error itself said "try again in Ns".
+      let message = err.message;
+      if (err.code === 'GEMINI_RATE_LIMIT') {
+        const wait = err.retryDelaySeconds
+          ? `try again in ${err.retryDelaySeconds}s`
+          : 'try again in a moment';
+        message = `Google throttled the request — ${wait}. Add your own key in Settings for more headroom.`;
+      } else if (!err.code) {
+        message = 'Couldn\'t process the receipt — check your connection and try again.';
       }
-      setPreview(null);
-      clearPendingScan();
+      setScanError({ code: err.code || 'PARSE_FAILED', message, resetLabel: err.resetLabel });
     } finally {
       setIsProcessing(false);
       setScanStage('idle');
@@ -124,6 +177,7 @@ export default function ScanReceipt() {
     const pending = readPendingScan();
     if (!pending?.dataUrl) return;
 
+    pendingRef.current = pending;
     setPreview(pending.dataUrl);
 
     // If we already had a parsed list when the reload happened, skip everything
@@ -138,27 +192,31 @@ export default function ScanReceipt() {
     runPipeline(pending);
   }, [runPipeline]);
 
-  const handleCapture = (e) => {
+  const handleCapture = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Allow re-selecting the same file later (onChange won't fire otherwise).
+    e.target.value = '';
 
     // A new capture supersedes any half-finished one.
     clearPendingScan();
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target.result;
-      const mimeType = dataUrl.substring(dataUrl.indexOf(':') + 1, dataUrl.indexOf(';'));
-      const imageBase64 = dataUrl.substring(dataUrl.indexOf(',') + 1);
+    let scan;
+    try {
+      scan = await loadAndDownscale(file);
+    } catch (err) {
+      console.error('Could not read image:', err);
+      showToast('Couldn\'t read that image — try another photo.', 'error');
+      return;
+    }
 
-      setPreview(dataUrl);
+    setPreview(scan.dataUrl);
 
-      const pending = { dataUrl, base64: imageBase64, mimeType };
-      // Persist BEFORE OCR — that way a refresh during OCR can resume.
-      writePendingScan(pending);
-      runPipeline(pending);
-    };
-    reader.readAsDataURL(file);
+    const pending = { dataUrl: scan.dataUrl, base64: scan.base64, mimeType: scan.mimeType };
+    pendingRef.current = pending; // in-memory fallback for retry
+    // Persist BEFORE OCR — that way a refresh during OCR can resume.
+    writePendingScan(pending);
+    runPipeline(pending);
   };
 
   const handleScanAgain = () => {
@@ -166,6 +224,19 @@ export default function ScanReceipt() {
     setPreview(null);
     setParsedItems([]);
     setScanError(null);
+  };
+
+  // Re-run the pipeline without re-photographing. Prefer the persisted blob
+  // (carries any completed OCR text, so retry skips straight to the parse);
+  // fall back to the in-memory copy if persistence failed or the blob aged out.
+  const handleRetry = () => {
+    const pending = readPendingScan() || pendingRef.current;
+    if (pending?.dataUrl) {
+      runPipeline(pending);
+    } else {
+      showToast('That photo is no longer available — please retake it.', 'info');
+      handleScanAgain();
+    }
   };
 
   const clearScanError = () => setScanError(null);
@@ -193,31 +264,38 @@ export default function ScanReceipt() {
       return;
     }
 
-    const results = await Promise.allSettled(
-      selected.map((item) =>
-        addPantryItem(activePantry.id, {
+    // Atomic import: everything lands or nothing does (the parsed list stays
+    // on screen for a clean retry). `failed` is only non-zero on the pre-
+    // migration fallback path, which can still partially land.
+    let result;
+    try {
+      result = await importReceiptItems(
+        activePantry.id,
+        selected.map((item) => ({
           name: item.name,
           category: item.category,
           quantity: item.quantity,
           unit: item.unit,
           expirationDate: item.expirationDate || null,
-        }, { skipDuplicateCheck: true })
-      )
-    );
-
-    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
-    const failed = results.length - succeeded;
+        }))
+      );
+    } catch (err) {
+      console.error('Receipt import failed:', err);
+      setIsProcessing(false);
+      showToast('Import failed — nothing was added. Please try again.', 'error');
+      return;
+    }
 
     setIsProcessing(false);
 
-    if (succeeded > 0) {
+    if (result.added > 0) {
       setIsDone(true);
       // Import landed — discard the persisted blob so the next visit starts clean.
       clearPendingScan();
-      if (failed > 0) {
-        showToast(`${succeeded} added, ${failed} failed — check your pantry`, 'info');
+      if (result.failed > 0) {
+        showToast(`${result.added} added, ${result.failed} failed — check your pantry`, 'info');
       } else {
-        showToast(`${succeeded} item${succeeded !== 1 ? 's' : ''} added to pantry`);
+        showToast(`${result.added} item${result.added !== 1 ? 's' : ''} added to pantry`);
       }
       setTimeout(() => navigate('/'), 1200);
     } else {
@@ -246,12 +324,19 @@ export default function ScanReceipt() {
           <div className="scan-error-banner animate-fade-in">
             <p>{scanError.message}</p>
             {(scanError.code === 'NO_API_KEY' || scanError.code === 'GEMINI_BAD_KEY') ? (
+              // Photo stays persisted — after fixing the key in Settings,
+              // returning here resumes the scan automatically.
               <Link to="/settings" className="btn btn-secondary" onClick={clearScanError}>
                 Open Settings
               </Link>
             ) : (
-              <button type="button" className="btn btn-secondary" onClick={clearScanError}>
-                Dismiss
+              <button type="button" className="btn btn-secondary" onClick={handleRetry} disabled={isProcessing}>
+                Try again
+              </button>
+            )}
+            {preview && !isProcessing && (
+              <button type="button" className="btn btn-secondary" onClick={handleScanAgain}>
+                Start over
               </button>
             )}
           </div>
@@ -259,20 +344,49 @@ export default function ScanReceipt() {
 
         {/* Capture Zone */}
         {!preview && (
-          <div className="scan-capture-zone" onClick={() => fileInputRef.current?.click()}>
+          <div className="scan-capture-zone" onClick={() => uploadInputRef.current?.click()}>
             <div className="scan-capture-icon">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                 <circle cx="12" cy="13" r="4" />
               </svg>
             </div>
-            <p className="scan-capture-text">Tap to capture or upload receipt</p>
-            <p className="scan-capture-hint">Supports camera and photo library</p>
+            <p className="scan-capture-text">Snap or upload a receipt</p>
+            <p className="scan-capture-hint">Take a photo now, or pick one from your library</p>
+            <div className="scan-capture-buttons">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  cameraInputRef.current?.click();
+                }}
+              >
+                Take photo
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  uploadInputRef.current?.click();
+                }}
+              >
+                Upload
+              </button>
+            </div>
             <input
-              ref={fileInputRef}
+              ref={cameraInputRef}
               type="file"
               accept="image/*"
               capture="environment"
+              className="scan-file-input"
+              onChange={handleCapture}
+            />
+            <input
+              ref={uploadInputRef}
+              type="file"
+              accept="image/*"
               className="scan-file-input"
               onChange={handleCapture}
             />

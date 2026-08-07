@@ -3,7 +3,7 @@ import { getPantryItems, deletePantryItem } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
 import { CATEGORIES } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
-import { getPinnedIds, reconcilePins } from '../lib/preferences';
+import { getPinnedIds, reconcilePins, PREFS_SYNCED_EVENT } from '../lib/preferences';
 import SearchBar from '../components/SearchBar';
 import ItemCard from '../components/ItemCard';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
@@ -61,6 +61,13 @@ export default function Pantry() {
       refresh().finally(() => setLoading(false));
     }
   }, [activePantry, refresh]);
+
+  // Cloud prefs can land after first paint (new device) — re-read pins.
+  useEffect(() => {
+    const handler = () => setPinTick((t) => t + 1);
+    window.addEventListener(PREFS_SYNCED_EVENT, handler);
+    return () => window.removeEventListener(PREFS_SYNCED_EVENT, handler);
+  }, []);
 
   useRealtimeSync(activePantry?.id, 'pantry_items', refresh);
 

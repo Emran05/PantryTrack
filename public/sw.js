@@ -1,7 +1,7 @@
 // Basic service worker for Pantry Snap PWA
 // Provides app shell caching for offline reliability
 
-const CACHE_NAME = 'pantry-snap-v1';
+const CACHE_NAME = 'pantry-snap-v2';
 const SHELL_ASSETS = [
   '/',
   '/index.html',
@@ -25,6 +25,42 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Push: expiry reminders sent by netlify/functions/expiry-notifications.mjs.
+// Payload: { title, body, url?, tag? }
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { body: event.data ? event.data.text() : '' };
+  }
+  event.waitUntil(
+    self.registration.showNotification(payload.title || 'Pantry Snap', {
+      body: payload.body || '',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: payload.tag || 'pantry-expiry',
+      data: { url: payload.url || '/' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const client of list) {
+        if ('focus' in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      return clients.openWindow(url);
+    })
+  );
+});
+
 // Fetch: network-first for API, cache-first for assets
 self.addEventListener('fetch', (event) => {
   const { request } = event;
@@ -35,10 +71,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For navigation requests, try network then fall back to cached index.html (SPA)
+  // For navigation requests, try network then fall back to cached index.html (SPA).
+  // Refresh the cached copy on every successful fetch — otherwise the fallback
+  // stays frozen at whatever was cached on install and, after a redeploy, points
+  // offline users at asset hashes that no longer exist.
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(() => caches.match('/index.html'))
+      fetch(request).then((response) => {
+        if (response && response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', clone));
+        }
+        return response;
+      }).catch(() => caches.match('/index.html'))
     );
     return;
   }

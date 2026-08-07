@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
 
 const ToastContext = createContext(null);
 
@@ -28,8 +28,12 @@ export function ToastProvider({ children }) {
     setToast(null);
   }, []);
 
+  // Memoized so consumers don't re-render every time a toast shows/dismisses —
+  // a fresh {showToast} object each render would invalidate every useToast() site.
+  const value = useMemo(() => ({ showToast }), [showToast]);
+
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={value}>
       {children}
       {toast && <ToastMessage toast={toast} onDismiss={dismiss} />}
     </ToastContext.Provider>

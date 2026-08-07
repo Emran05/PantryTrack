@@ -11,6 +11,7 @@ export default function Auth() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [isLogin, setIsLogin] = useState(true);
+  const [isReset, setIsReset] = useState(false);
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
 
@@ -54,6 +55,24 @@ export default function Auth() {
     setLoading(false);
   };
 
+  const handleResetRequest = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setInfo(null);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) {
+      setError(error.message);
+    } else {
+      // Same message whether or not the account exists — don't leak signups.
+      setInfo(`If an account exists for ${email}, a reset link is on its way. Check your inbox.`);
+    }
+    setLoading(false);
+  };
+
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setError(null);
@@ -74,12 +93,45 @@ export default function Auth() {
     <div className="auth-container animate-fade-in">
       <div className="auth-card">
         <h1 className="auth-title">Pantry Tracker</h1>
-        <p className="auth-subtitle">{isLogin ? 'Welcome back' : 'Create an account to start tracking.'}</p>
-        
+        <p className="auth-subtitle">
+          {isReset ? 'Enter your email and we\'ll send a reset link.' : isLogin ? 'Welcome back' : 'Create an account to start tracking.'}
+        </p>
+
         {error && <div className="auth-error">{error}</div>}
         {info && <div className="auth-info">{info}</div>}
 
-        <button 
+        {isReset ? (
+          <>
+            <form onSubmit={handleResetRequest} className="auth-form">
+              <div className="form-group">
+                <label>Email</label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="hello@example.com"
+                />
+              </div>
+              <button type="submit" className="btn btn-primary auth-submit" disabled={loading}>
+                {loading ? '...' : 'Send reset link'}
+              </button>
+            </form>
+            <button
+              type="button"
+              className="auth-toggle-btn"
+              onClick={() => {
+                setIsReset(false);
+                setError(null);
+                setInfo(null);
+              }}
+            >
+              Back to log in
+            </button>
+          </>
+        ) : (
+        <>
+        <button
           className="btn btn-secondary auth-google-btn" 
           onClick={handleGoogleSignIn}
           disabled={loading}
@@ -149,8 +201,22 @@ export default function Auth() {
           </button>
         </form>
 
-        <button 
-          type="button" 
+        {isLogin && (
+          <button
+            type="button"
+            className="auth-toggle-btn"
+            onClick={() => {
+              setIsReset(true);
+              setError(null);
+              setInfo(null);
+            }}
+          >
+            Forgot password?
+          </button>
+        )}
+
+        <button
+          type="button"
           className="auth-toggle-btn"
           onClick={() => {
             setIsLogin(!isLogin);
@@ -160,6 +226,8 @@ export default function Auth() {
         >
           {isLogin ? "Don't have an account? Sign up" : "Already have an account? Log in"}
         </button>
+        </>
+        )}
       </div>
     </div>
   );

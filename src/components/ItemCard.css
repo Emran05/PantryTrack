@@ -162,6 +162,42 @@
   }
 }
 
+/* Mouse/keyboard route to the Use/List/Delete row — swipe is touch-only */
+.item-card-actions-toggle {
+  position: absolute;
+  bottom: var(--space-sm);
+  right: var(--space-sm);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  border: none;
+  cursor: pointer;
+  background: var(--color-bg-primary);
+  color: var(--color-text-muted);
+  opacity: 0;
+  transition: all var(--transition-fast);
+}
+
+.item-card:hover .item-card-actions-toggle,
+.item-card-actions-toggle:focus-visible {
+  opacity: 1;
+}
+
+.item-card-actions-toggle:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-card-hover);
+}
+
+/* Touch devices already have swipe — keep the card clean */
+@media (hover: none) {
+  .item-card-actions-toggle {
+    display: none;
+  }
+}
+
 .item-card-pin {
   position: absolute;
   top: var(--space-sm);

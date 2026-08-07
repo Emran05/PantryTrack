@@ -483,18 +483,36 @@ export async function deleteShoppingItem(itemId) {
   if (error) throw error;
 }
 
-// Returns { moved, failed }. Only deletes shopping rows whose pantry insert
-// succeeded — with Promise.all a single failed insert used to abort the delete
-// phase entirely, so a retry re-added the items that had already landed.
+// Returns { moved, failed }. Primary path is the move_checked_to_pantry RPC —
+// one transaction, so an insert can never land without its shopping-row delete
+// (the old client loop could half-complete on a dropped connection). Falls back
+// to the loop when the migration hasn't been applied yet.
 export async function moveCheckedToPantry(pantryId) {
   const shoppingItems = await getShoppingList(pantryId);
   const checked = shoppingItems.filter((i) => i.isChecked);
 
   if (checked.length === 0) return { moved: 0, failed: 0 };
 
-  // Add all checked items to pantry in parallel (skip per-item duplicate check — items
-  // on the shopping list are already unique; the pantry check would be a false positive
-  // since users intentionally restock items they've run out of)
+  // Expiration defaults are computed here because the category → shelf-life
+  // mapping lives in helpers.js, not the database.
+  const moves = checked.map((item) => ({
+    id: item.id,
+    expiration_date: getDefaultExpirationDate(item.category || 'other') || '',
+  }));
+
+  const { data, error } = await supabase.rpc('move_checked_to_pantry', {
+    p_pantry: pantryId,
+    p_moves: moves,
+  });
+  if (!error) {
+    return { moved: data?.moved ?? 0, failed: data?.failed ?? 0 };
+  }
+  if (error.code !== 'PGRST202') throw error;
+  console.warn('move_checked_to_pantry RPC missing — apply supabase/migrations. Falling back to per-item moves.');
+
+  // Fallback: add all checked items in parallel (skip per-item duplicate check —
+  // users intentionally restock items they've run out of), then delete only the
+  // shopping rows whose insert succeeded.
   const addResults = await Promise.allSettled(checked.map(item => {
     const category = item.category || 'other';
     return addPantryItem(pantryId, {
@@ -512,13 +530,46 @@ export async function moveCheckedToPantry(pantryId) {
     .filter((r) => r.status === 'rejected')
     .forEach((r) => console.error('Failed to move item to pantry:', r.reason));
 
-  // Delete only the shopping rows that actually made it into the pantry.
   const deleteResults = await Promise.allSettled(landed.map(item => deleteShoppingItem(item.id)));
   deleteResults
     .filter((r) => r.status === 'rejected')
     .forEach((r) => console.error('Failed to remove moved shopping item:', r.reason));
 
   return { moved: landed.length, failed };
+}
+
+// All-or-nothing receipt import via the import_receipt_items RPC. Returns
+// { added, failed, atomic }. Falls back to per-item inserts (which can
+// partially land) when the migration hasn't been applied yet.
+export async function importReceiptItems(pantryId, items) {
+  const payload = items.map((item) => ({
+    name: item.name,
+    category: item.category || 'other',
+    quantity: item.quantity || 1,
+    unit: item.unit || 'pcs',
+    expiration_date: item.expirationDate || '',
+    area_id: item.area_id || '',
+    notes: item.notes || '',
+  }));
+
+  const { data, error } = await supabase.rpc('import_receipt_items', {
+    p_pantry: pantryId,
+    p_items: payload,
+  });
+  if (!error) {
+    return { added: data ?? payload.length, failed: 0, atomic: true };
+  }
+  if (error.code !== 'PGRST202') throw error;
+  console.warn('import_receipt_items RPC missing — apply supabase/migrations. Falling back to per-item inserts.');
+
+  const results = await Promise.allSettled(
+    items.map((item) => addPantryItem(pantryId, item, { skipDuplicateCheck: true }))
+  );
+  const added = results.filter((r) => r.status === 'fulfilled').length;
+  results
+    .filter((r) => r.status === 'rejected')
+    .forEach((r) => console.error('Failed to import receipt item:', r.reason));
+  return { added, failed: results.length - added, atomic: false };
 }
 
 // Shared rate-limit pre-flight for any "receipts" path (image or OCR-text).
