@@ -23,6 +23,14 @@ describe('nameMatchesIngredient', () => {
   it('ignores punctuation and digits', () => {
     expect(nameMatchesIngredient('100% Greek Yogurt!', 'greek yogurt')).toBe(true);
   });
+
+  it('never matches when either side normalizes to empty (regression: "2%" matched everything)', () => {
+    expect(nameMatchesIngredient('milk', '')).toBe(false);
+    expect(nameMatchesIngredient('', 'chicken')).toBe(false);
+    expect(nameMatchesIngredient('2%', 'chicken')).toBe(false);
+    expect(nameMatchesIngredient('milk', '123')).toBe(false);
+    expect(nameMatchesIngredient('2%', '2%')).toBe(false);
+  });
 });
 
 describe('recipeKey', () => {

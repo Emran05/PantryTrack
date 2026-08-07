@@ -161,6 +161,10 @@ function normalize(str) {
 export function nameMatchesIngredient(itemName, ingredient) {
   const normalizedItem = normalize(itemName);
   const normalizedIngredient = normalize(ingredient);
+  // Empty after normalize (digits/symbols-only, e.g. "2%") must match NOTHING:
+  // x.includes('') is always true, which made these match everything and let
+  // "I cooked this" decrement the entire pantry.
+  if (!normalizedItem || !normalizedIngredient) return false;
   return normalizedItem.includes(normalizedIngredient) || normalizedIngredient.includes(normalizedItem);
 }
 

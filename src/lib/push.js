@@ -72,16 +72,18 @@ export async function enablePushNotifications() {
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') fail('Notifications are blocked for this site', 'PUSH_DENIED');
 
+  // Auth check BEFORE the irreversible browser subscribe.
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) fail('Not logged in', 'PUSH_NO_USER');
+
   let sub = await reg.pushManager.getSubscription();
+  const createdHere = !sub;
   if (!sub) {
     sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: urlBase64ToUint8Array(PUBLIC_KEY),
     });
   }
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) fail('Not logged in', 'PUSH_NO_USER');
 
   const json = sub.toJSON();
   // RPC (not a plain upsert): a browser endpoint can already belong to another
@@ -92,7 +94,13 @@ export async function enablePushNotifications() {
     p_p256dh: json.keys.p256dh,
     p_auth: json.keys.auth,
   });
-  if (error) throw error;
+  if (error) {
+    // Roll back a subscription we just created — otherwise the browser stays
+    // subscribed with no server row, and the toggle lies "on" forever while
+    // no notification can ever arrive.
+    if (createdHere) await sub.unsubscribe().catch(() => {});
+    throw error;
+  }
 
   return sub;
 }

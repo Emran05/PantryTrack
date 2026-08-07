@@ -62,6 +62,16 @@ export function AuthProvider({ children }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    // Unsubscribe push BEFORE the session dies — the push_subscriptions
+    // delete needs this user's session to pass RLS. Without this, the device
+    // keeps receiving the previous account's expiry reminders (shared-device
+    // roommate case). Best-effort: a failure must never block signing out.
+    try {
+      const { disablePushNotifications } = await import('../lib/push');
+      await disablePushNotifications();
+    } catch {
+      // No subscription, unsupported browser, or network failure — proceed.
+    }
     // Clear per-user local state so the next account doesn't inherit it.
     try {
       localStorage.removeItem('pantry_active_id');
