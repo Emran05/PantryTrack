@@ -77,6 +77,20 @@
 .item-card-info {
   flex: 1;
   min-width: 0;
+  /* The card slides 168px left to reveal Use / List / Delete, which carried
+     this whole column off the wrapper's clip edge. The counter-shift used to
+     live on .item-card-name alone, so the NAME was rescued but the category
+     and expiry badges below it stayed clipped — and expiry is the one fact
+     that answers "use this or bin it?", missing at exactly the moment the
+     destructive button is on screen. Shifting the column rescues both with a
+     single transform. */
+  transform: translateX(var(--swipe-offset, 0px));
+  /* Shifting alone left the column its full width, so a long name ran on under
+     the drawer and painted over the Use button (the card stacks above it).
+     Reclaiming the drawer's width makes the name ellipsize at the boundary
+     instead. Same var, so it stays exact at every point of the slide. */
+  max-width: calc(100% - var(--swipe-offset, 0px));
+  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .item-card-name {
@@ -86,11 +100,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  /* The card slides left to reveal its actions, which pushed the item's own
-     name off the container edge — you could no longer see WHAT you were about
-     to Use/List/Delete (QA finding). Counter-shift keeps the name anchored. */
-  transform: translateX(var(--swipe-offset, 0px));
-  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* Counter-shift moved up to .item-card-info — it covers this and the badges. */
 }
 
 .item-card-meta {
