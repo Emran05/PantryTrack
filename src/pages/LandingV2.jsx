@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import LivePantryHero from '../components/LivePantryHero';
+import FloatingNav from '../components/FloatingNav';
 import { useTransition } from '../contexts/TransitionContext';
 import { initReveals } from '../lib/reveal';
 import './LandingV2.css';
@@ -20,13 +21,14 @@ export default function LandingV2() {
 
   return (
     <div className="v2" ref={rootRef}>
-      <nav className="v2-nav">
-        <span className="v2-logo">Pantry Snap</span>
-        <span className="v2-nav-actions">
-          <button className="v2-link" onClick={() => startTransition('/login')}>Log in</button>
-          <button className="v2-btn v2-btn-sm" onClick={toSignup}>Start free</button>
-        </span>
-      </nav>
+      <FloatingNav
+        onLogin={() => startTransition('/login')}
+        onSignup={toSignup}
+        onNavigate={(to) => {
+          if (to.startsWith('#')) document.querySelector(`[data-anchor="${to.slice(1)}"]`)?.scrollIntoView({ behavior: 'smooth' });
+          else startTransition(to);
+        }}
+      />
 
       <header className="v2-hero">
         <div className="v2-hero-copy">
@@ -54,7 +56,7 @@ export default function LandingV2() {
         </div>
       </header>
 
-      <section className="v2-section reveal">
+      <section className="v2-section reveal" data-anchor="how">
         <div className="v2-section-inner">
           <h2 className="v2-h2">The part everyone hates, automated</h2>
           <div className="v2-steps">
@@ -77,7 +79,7 @@ export default function LandingV2() {
         </div>
       </section>
 
-      <section className="v2-section v2-section-alt reveal">
+      <section className="v2-section v2-section-alt reveal" data-anchor="shared">
         <div className="v2-section-inner v2-split">
           <div>
             <h2 className="v2-h2">Built for a shared kitchen</h2>

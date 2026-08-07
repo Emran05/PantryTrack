@@ -1,0 +1,177 @@
+/* Floating island header — Clerk's pattern, decomposed (see DESIGN_SYSTEM.md).
+ *
+ * The counter-intuitive part, and the reason cheap copies look flat: THE PILL
+ * IS NOT THE GLASS. The pill is a near-opaque fill whose depth comes from a
+ * layered shadow stack (inset specular top edge + dark contact ring). The blur
+ * lives in a separate, non-interactive scrim BEHIND it, and only the scrim
+ * responds to scroll.
+ *
+ * Desktop only. On phones this is a plain full-bleed bar: a full-width
+ * backdrop-filter re-rasterizes every scroll frame, which is a real cost on
+ * the low-end Android hardware a free student PWA runs on.
+ */
+
+.fnav {
+  position: sticky; /* not fixed — stays in flow, no page-padding hack */
+  top: 0;
+  z-index: 100;
+  padding-inline: 12px;
+  pointer-events: none; /* gutters beside the island stay click-through */
+}
+
+.fnav__pill {
+  pointer-events: auto;
+  position: relative;
+  isolation: isolate;
+  margin-inline: auto;
+  max-width: 1100px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-inline: 16px;
+  border-radius: 0;
+  background: rgb(13 17 23 / 0.92);
+  border-bottom: 1px solid rgb(255 255 255 / 0.07);
+}
+
+/* ---- desktop: detach into an island ---- */
+@media (min-width: 901px) {
+  .fnav {
+    top: 10px;
+    padding-inline: 16px;
+  }
+
+  .fnav__pill {
+    height: 52px;
+    /* 16px, not 9999px — a full pill at this height reads as a widget,
+       not navigation. */
+    border-radius: 16px;
+    border-bottom: none;
+    background: rgb(13 17 23 / 0.55);
+    transition: background 450ms cubic-bezier(0.33, 1, 0.68, 1);
+    box-shadow:
+      /* specular top edge — the light source */
+      inset 0 0.5px 0 0 rgb(255 255 255 / 0.14),
+      /* hairline ring */
+      0 0 0 0.5px rgb(255 255 255 / 0.10),
+      /* dark contact ring: what separates glass from its backdrop */
+      0 0 0 1px rgb(0 0 0 / 0.55),
+      0 2px 3px rgb(0 0 0 / 0.16),
+      0 4px 12px rgb(0 0 0 / 0.22);
+  }
+
+  /* Scrolled: the fill firms up so text stays legible over page content. */
+  .fnav[data-scrolled='true'] .fnav__pill {
+    background: rgb(13 17 23 / 0.90);
+  }
+
+  /* The blur scrim — separate layer, behind the pill, never interactive. */
+  .fnav__scrim {
+    position: absolute;
+    inset: -10px 0 auto;
+    height: 76px;
+    z-index: -1;
+    pointer-events: none;
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    /* Fades out downward so there is no hard blur edge across the page. */
+    mask-image: linear-gradient(to bottom, #000 45%, transparent);
+    -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent);
+    opacity: 0;
+    transition: opacity 450ms cubic-bezier(0.33, 1, 0.68, 1);
+  }
+
+  .fnav[data-scrolled='true'] .fnav__scrim {
+    opacity: 1;
+  }
+
+  /* Noise: rasterized once, no network request. Without it a translucent
+     panel reads as flat plastic rather than material. */
+  .fnav__pill::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    mix-blend-mode: overlay;
+    opacity: 0.6;
+  }
+
+  /* Apple's own degradation target is 88-92% alpha, not a see-through bar. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .fnav__pill { background: rgb(13 17 23 / 0.92); }
+    .fnav__scrim { display: none; }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fnav__pill,
+  .fnav__scrim { transition: none; }
+}
+
+/* ---- contents ---- */
+.fnav__brand {
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+  color: #e6edf3;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.fnav__links {
+  display: none;
+  align-items: center;
+  gap: 2px;
+}
+
+@media (min-width: 901px) {
+  .fnav__links { display: flex; }
+}
+
+/* Linear's anchor treatment: the pill radius lives on the LINKS, not the bar. */
+.fnav__link {
+  height: 32px;
+  padding-inline: 12px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  font-size: 0.83rem;
+  font-weight: 500;
+  color: #8b949e;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 150ms ease, background 150ms ease;
+}
+
+.fnav__link:hover {
+  color: #e6edf3;
+  background: rgb(255 255 255 / 0.08);
+}
+
+.fnav__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fnav__cta {
+  height: 34px;
+  padding-inline: 14px;
+  border-radius: 9px;
+  background: #2ea043;
+  color: #fff;
+  border: 1px solid transparent;
+  font-weight: 650;
+  font-size: 0.86rem;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.fnav__cta:hover { background: #3fb950; }
