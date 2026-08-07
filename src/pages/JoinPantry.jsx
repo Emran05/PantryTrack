@@ -49,10 +49,15 @@ export default function JoinPantry() {
         const list = await refreshPantries();
         const joined = list.find((p) => p.id === res.pantry_id);
         if (joined) setActivePantryDirect(joined);
+        // The redirect lands on the pantry immediately, so a default-length
+        // toast is easy to miss — the user clicked a link and deserves to see
+        // that it worked (QA finding: reads as a silent redirect).
         showToast(
           res.already_member
-            ? `You're already a member of ${res.pantry_name}`
-            : `Welcome to ${res.pantry_name}!`
+            ? `You're already a member of ${res.pantry_name} — switched to it`
+            : `Welcome to ${res.pantry_name}!`,
+          'success',
+          { duration: 6000 }
         );
         navigate('/', { replace: true });
       } catch (err) {
