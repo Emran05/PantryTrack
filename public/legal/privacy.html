@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PantrySnap — Privacy Policy</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:720px;margin:0 auto;padding:24px 20px 64px;line-height:1.6;color:#1a1a1a;background:#fff}
+  h1{font-size:1.6rem}h2{font-size:1.15rem;margin-top:2em}
+  .draft{background:#fff3cd;border:2px solid #e0a800;border-radius:8px;padding:12px 16px;font-weight:600;margin-bottom:24px}
+  .tldr{background:#f0f4f8;border-radius:8px;padding:16px 20px;margin:20px 0}
+  .tldr h2{margin-top:0}
+  .sale{background:#fdeaea;border:2px solid #c0392b;border-radius:8px;padding:16px 20px;margin:20px 0}
+  .sale h2{margin-top:0;color:#c0392b}
+  a{color:#0b6e4f}
+  @media (prefers-color-scheme: dark){body{background:#121212;color:#e8e8e8}.tldr{background:#1e2530}.draft{background:#3a3116;border-color:#8a6d00}.sale{background:#301b1b}a{color:#5fd3a5}}
+</style>
+</head>
+<body>
+<div class="draft">DRAFT — ATTORNEY REVIEW REQUIRED. This document has not been reviewed by a lawyer and is not in effect until it has been.</div>
+
+<h1>PantrySnap Privacy Policy</h1>
+<p><em>Effective date: [NOT YET IN EFFECT — draft of August 6, 2026]</em></p>
+
+<div class="tldr">
+<h2>The short version</h2>
+<ul>
+  <li>We collect your account info (email), the food items you track, receipt scans you choose to process, and how you use the app.</li>
+  <li><strong>We sell and share some of this data with third parties</strong> — see the red box below, and how to opt out.</li>
+  <li>You can opt out of the sale/sharing of your data at any time without losing access to the app.</li>
+  <li>You can export or delete all of your data whenever you want.</li>
+</ul>
+</div>
+
+<div class="sale">
+<h2>We sell and share your data — and you can say no</h2>
+<p>PantrySnap is free because we monetize data. Specifically, we may sell or share the following categories of personal information with advertisers, market-research firms, and consumer-insights companies:</p>
+<ul>
+  <li>Pantry and fridge inventory data (products, brands, quantities, purchase patterns)</li>
+  <li>Shopping-list and consumption trends</li>
+  <li>Coarse demographics you choose to provide (e.g., university, graduation year)</li>
+  <li>Usage and device analytics</li>
+</ul>
+<p>We do <strong>not</strong> sell your email address, password, receipt images, or push-notification tokens.</p>
+<p><strong>Opt out any time:</strong> visit <a href="/legal/do-not-sell.html">Do Not Sell or Share My Personal Information</a> or use the toggle in Settings → Privacy. We also honor the <a href="https://globalprivacycontrol.org">Global Privacy Control (GPC)</a> browser signal automatically.</p>
+</div>
+
+<h2>What we collect</h2>
+<ul>
+  <li><strong>Account:</strong> email address and password (stored hashed by our auth provider, Supabase).</li>
+  <li><strong>Pantry data:</strong> items you add — names, categories, quantities, expiration dates, photos you attach.</li>
+  <li><strong>Receipt scans:</strong> processed on your device. The extracted item list is stored; the receipt image itself is not uploaded.</li>
+  <li><strong>Recipes:</strong> when you request AI recipes, your current pantry item names are sent to Google's Gemini API to generate suggestions.</li>
+  <li><strong>Notifications:</strong> a push token, if you enable expiry reminders.</li>
+  <li><strong>Usage:</strong> feature usage, session length, device type, and approximate region.</li>
+</ul>
+
+<h2>How we use it</h2>
+<ul>
+  <li>To run the app: sync your pantry across devices, send expiry reminders you asked for, generate recipes you request.</li>
+  <li>To improve the app: aggregated, de-identified usage analysis.</li>
+  <li>To monetize: sale/sharing of the categories listed in the red box above, unless you opt out.</li>
+</ul>
+
+<h2>Your rights</h2>
+<p>Wherever you live, you can:</p>
+<ul>
+  <li><strong>Access / export</strong> your data (Settings → Account → Export).</li>
+  <li><strong>Delete</strong> your account and all data (Settings → Account → Delete). Deletion is permanent and completes within 30 days across our backups.</li>
+  <li><strong>Correct</strong> anything by editing it in the app.</li>
+</ul>
+<p>If you live in California (CCPA/CPRA), Virginia, Colorado, Connecticut, Utah, or another US state with a consumer-privacy law, you additionally have the right to opt out of the sale or sharing of your personal information (red box above), the right to know what we've collected, and the right not to be discriminated against for exercising these rights — the app works the same whether you opt out or not. California residents may also designate an authorized agent to opt out for them.</p>
+
+<h2>Children</h2>
+<p>PantrySnap is not directed at children under 13, and we do not knowingly collect data from them. If you believe a child under 13 has an account, contact us and we will delete it.</p>
+
+<h2>Data retention &amp; security</h2>
+<p>Data is retained while your account is active and deleted within 30 days of account deletion. Data is encrypted in transit (TLS) and at rest by our infrastructure providers (Supabase, Netlify).</p>
+
+<h2>Processors we use</h2>
+<ul>
+  <li><strong>Supabase</strong> — database, auth, realtime sync</li>
+  <li><strong>Netlify</strong> — hosting and serverless functions</li>
+  <li><strong>Google Gemini API</strong> — recipe generation (receives pantry item names only, on request)</li>
+</ul>
+
+<h2>Changes</h2>
+<p>We'll notify you in-app at least 14 days before material changes take effect, and the sale/sharing scope will never expand without renewed notice and the same one-tap opt-out.</p>
+
+<h2>Contact</h2>
+<p>[Legal entity name — TODO] · <a href="mailto:nasseriemran@gmail.com">nasseriemran@gmail.com</a></p>
+</body>
+</html>
