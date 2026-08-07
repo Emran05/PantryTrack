@@ -1,5 +1,6 @@
 .auth-container {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -21,7 +22,7 @@
 }
 
 .auth-title {
-  font-size: var(--font-size-xxxl);
+  font-size: var(--font-size-3xl);
   font-weight: 800;
   text-align: center;
   color: var(--color-accent);
@@ -107,7 +108,9 @@
   border: 1px solid var(--color-border);
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
-  font-size: var(--font-size-base);
+  /* Must be >=16px: iOS Safari zooms the viewport on focus below that and
+     does not zoom back out on blur. */
+  font-size: 1rem;
   transition: all var(--transition-fast);
 }
 
