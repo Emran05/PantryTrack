@@ -387,17 +387,17 @@ export default function Settings() {
               </div>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label className="settings-label" style={{ fontSize: '0.9rem' }}>First Name</label>
-                  <input type="text" value={profile.first_name} onChange={e => setProfile({...profile, first_name: e.target.value})} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }} />
+                  <label className="settings-label" htmlFor="set-first-name" style={{ fontSize: '0.9rem' }}>First Name</label>
+                  <input id="set-first-name" name="set-first-name" autoComplete="given-name" type="text" value={profile.first_name} onChange={e => setProfile({...profile, first_name: e.target.value})} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }} />
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label className="settings-label" style={{ fontSize: '0.9rem' }}>Last Name</label>
-                  <input type="text" value={profile.last_name} onChange={e => setProfile({...profile, last_name: e.target.value})} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }} />
+                  <label className="settings-label" htmlFor="set-last-name" style={{ fontSize: '0.9rem' }}>Last Name</label>
+                  <input id="set-last-name" name="set-last-name" autoComplete="family-name" type="text" value={profile.last_name} onChange={e => setProfile({...profile, last_name: e.target.value})} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }} />
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label className="settings-label" style={{ fontSize: '0.9rem' }}>Venmo Handle</label>
-                <input type="text" placeholder="@venmo_handle" value={profile.venmo_handle} onChange={e => setProfile({...profile, venmo_handle: e.target.value})} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }} />
+                <label className="settings-label" htmlFor="set-venmo" style={{ fontSize: '0.9rem' }}>Venmo Handle</label>
+                <input id="set-venmo" name="set-venmo" autoComplete="off" type="text" placeholder="@venmo_handle" value={profile.venmo_handle} onChange={e => setProfile({...profile, venmo_handle: e.target.value})} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }} />
               </div>
               <button type="submit" className="btn btn-primary" disabled={loading}>
                 Save Profile
@@ -442,7 +442,8 @@ export default function Settings() {
             <form onSubmit={handleCreateHome} style={{ display: 'flex', gap: '8px' }}>
               <input 
                 type="text" 
-                placeholder="New home name..." 
+                placeholder="New home name..."
+                aria-label="Name for the new home" 
                 value={newHomeName}
                 onChange={e => setNewHomeName(e.target.value)}
                 style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}
@@ -568,6 +569,7 @@ export default function Settings() {
               <input
                 type="text"
                 placeholder="Paste Home ID..."
+                aria-label="Home ID to join"
                 value={joinHomeId}
                 onChange={e => setJoinHomeId(e.target.value)}
                 style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', fontFamily: 'monospace', fontSize: '0.85rem' }}
@@ -591,8 +593,10 @@ export default function Settings() {
                   areas.map(a => (
                     <div key={a.id} className="settings-row" style={{ padding: '8px', borderRadius: '8px', background: 'var(--color-bg-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span className="settings-label">{a.name}</span>
-                      <button 
+                      <button
                         onClick={() => handleDeleteArea(a.id)}
+                        aria-label={`Delete area ${a.name}`}
+                        title={`Delete area ${a.name}`}
                         style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '4px' }}
                         disabled={loading}
                       >
@@ -608,7 +612,8 @@ export default function Settings() {
               <form onSubmit={handleCreateArea} style={{ display: 'flex', gap: '8px' }}>
                 <input 
                   type="text" 
-                  placeholder="New area name..." 
+                  placeholder="New area name..."
+                aria-label="Name for the new area" 
                   value={newAreaName}
                   onChange={e => setNewAreaName(e.target.value)}
                   style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--color-border)', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}
@@ -707,6 +712,8 @@ export default function Settings() {
               <input
                 type="password"
                 placeholder={userKeySet ? 'Replace existing key…' : 'Paste your Gemini API key'}
+                aria-label="Gemini API key"
+                autoComplete="off"
                 value={aiKeyInput}
                 onChange={(e) => setAiKeyInput(e.target.value)}
                 autoComplete="off"
