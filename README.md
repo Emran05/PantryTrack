@@ -75,3 +75,18 @@ netlify/functions/  gemini proxy, expiry notifications (cron), delete-account
 supabase/migrations/  schema, RLS policies, privacy flag
 public/legal/    EULA, privacy policy, do-not-sell (DRAFTS)
 ```
+
+## Database recovery
+
+`supabase/schema/baseline.sql` is a full snapshot of the live `public` schema
+(all tables, RLS policies, functions). The core domain tables were originally
+created through the Supabase dashboard and existed in no migration, so this
+file is what lets the repo rebuild the database from nothing.
+
+To stand up an empty project: run `baseline.sql`, then apply
+`supabase/migrations/` in filename order. Regenerate the snapshot after any
+schema change:
+
+```bash
+supabase db dump --schema public -f supabase/schema/baseline.sql
+```
