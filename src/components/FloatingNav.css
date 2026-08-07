@@ -171,10 +171,11 @@
   font-weight: 650;
   font-size: 0.86rem;
   cursor: pointer;
-  transition: background 150ms ease;
+  transition: background 150ms ease, transform 150ms ease;
 }
 
 .fnav__cta:hover { background: #3fb950; }
+.fnav__cta:active { transform: scale(0.97); }
 
 /* ---- mobile disclosure ----
  * The section links are desktop-only by design, but hiding them with no
@@ -239,4 +240,10 @@
    into the panel rather than competing with the primary CTA. */
 @media (max-width: 900px) {
   .fnav__login { display: none; }
+}
+
+/* The global reduced-motion rule only zeroes durations, which would make
+   the press scale snap rather than not happen. Suppress the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .fnav__cta:active { transform: none; }
 }

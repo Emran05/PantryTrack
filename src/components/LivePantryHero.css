@@ -109,6 +109,9 @@
 }
 
 .lp-expiry {
+  /* Counts and countdowns change in place; proportional digits make the
+     row jitter as the width shifts. */
+  font-variant-numeric: tabular-nums;
   font-size: 0.75rem;
   font-weight: 650;
   padding: 2px 8px;
@@ -120,6 +123,9 @@
 .lp-expiry-calm { color: #8b949e; background: rgba(255, 255, 255, 0.05); }
 
 .lp-qty {
+  /* Counts and countdowns change in place; proportional digits make the
+     row jitter as the width shifts. */
+  font-variant-numeric: tabular-nums;
   font-size: 0.75rem;
   color: #8b949e;
   min-width: 62px;
@@ -169,6 +175,7 @@
 }
 
 .lp-foot {
+  text-wrap: pretty;
   margin: 12px 0 0;
   font-size: 0.78rem;
   color: #7d8590;

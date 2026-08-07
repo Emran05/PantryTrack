@@ -28,6 +28,7 @@
 }
 
 .sfoot__tagline {
+  text-wrap: pretty;
   margin: 8px 0 0;
   font-size: 0.81rem;
   line-height: 1.5;

@@ -112,6 +112,9 @@
 }
 
 .item-card-qty-value {
+  /* Counts and countdowns change in place; proportional digits make the
+     row jitter as the width shifts. */
+  font-variant-numeric: tabular-nums;
   font-size: var(--font-size-lg);
   font-weight: 700;
   color: var(--color-accent);
@@ -147,7 +150,7 @@
   border-radius: var(--radius-full);
   font-size: 0.85rem;
   opacity: 0;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast);
   background: rgba(239, 68, 68, 0.1);
 }
 
@@ -183,7 +186,7 @@
   background: var(--color-bg-primary);
   color: var(--color-text-muted);
   opacity: 0;
-  transition: all var(--transition-fast);
+  transition: opacity var(--transition-fast);
 }
 
 .item-card:hover .item-card-actions-toggle,
@@ -218,7 +221,7 @@
   border: none;
   cursor: pointer;
   opacity: 0.35;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), filter var(--transition-fast);
   z-index: 1;
 }
 

@@ -119,7 +119,7 @@
   /* Must be >=16px: iOS Safari zooms the viewport on focus below that and
      does not zoom back out on blur. */
   font-size: 1rem;
-  transition: all var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 /* Consent row: the checkbox must escape .auth-form input's width:100% —

@@ -43,6 +43,9 @@
   transition: background 0.16s ease, transform 0.16s ease;
 }
 .v2-btn:hover { background: #3fb950; transform: translateY(-1px); }
+/* Tactile press. Small enough to read as a button depressing rather than
+   as the layout moving. */
+.v2-btn:active { transform: scale(0.97); }
 .v2-btn-sm { padding: 8px 14px; min-height: 38px; font-size: 0.9rem; }
 .v2-btn-lg { padding: 15px 28px; min-height: 52px; font-size: 1.05rem; }
 
@@ -58,6 +61,7 @@
 }
 
 .v2-h1 {
+  text-wrap: balance;
   /* Reading scale, not display scale — the product is the spectacle. */
   font-size: clamp(1.9rem, 3.4vw, 2.6rem);
   line-height: 1.18;
@@ -69,6 +73,7 @@
 .v2-h1-dim { color: #8b949e; }
 
 .v2-sub {
+  text-wrap: pretty;
   font-size: 1.02rem;
   line-height: 1.6;
   color: #adbac7;
@@ -105,7 +110,11 @@
 
 .v2-cta-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 
-.v2-cta-note { font-size: 0.84rem; color: #7d8590; }
+.v2-cta-note {
+  text-wrap: pretty;
+  font-size: 0.84rem;
+  color: #7d8590;
+}
 
 .v2-hero-demo { display: flex; justify-content: center; }
 
@@ -115,6 +124,7 @@
 .v2-section-inner { max-width: 1120px; margin: 0 auto; }
 
 .v2-h2 {
+  text-wrap: balance;
   font-size: clamp(1.4rem, 2.2vw, 1.8rem);
   font-weight: 680;
   letter-spacing: -0.015em;
@@ -122,7 +132,11 @@
 }
 
 .v2-body { color: #adbac7; line-height: 1.65; margin: 0 0 14px; max-width: 52ch; }
-.v2-muted { color: #7d8590; font-size: 0.94rem; }
+.v2-muted {
+  text-wrap: pretty;
+  color: #7d8590;
+  font-size: 0.94rem;
+}
 
 .v2-steps {
   display: grid;
@@ -179,7 +193,14 @@
 .v2-feed li:last-child { border-bottom: none; }
 .v2-feed strong { color: #e6edf3; font-weight: 600; }
 .v2-feed-who { color: #3fb950; font-weight: 650; }
-.v2-feed-when { margin-left: auto; color: #7d8590; font-size: 0.78rem; }
+.v2-feed-when {
+  /* Counts and countdowns change in place; proportional digits make the
+     row jitter as the width shifts. */
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  color: #7d8590;
+  font-size: 0.78rem;
+}
 
 /* ---- close ---- */
 .v2-close {
@@ -217,4 +238,10 @@
   .v2-split { grid-template-columns: 1fr; gap: 28px; }
   .v2-section { padding: 52px 20px; }
   .v2-close { padding: 60px 20px; }
+}
+
+/* The global reduced-motion rule only zeroes durations, which would make
+   the press scale snap rather than not happen. Suppress the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .v2-btn:active, .v2-btn:hover { transform: none; }
 }

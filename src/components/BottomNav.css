@@ -29,7 +29,7 @@
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-lg);
   position: relative;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), transform var(--transition-fast);
   min-width: 56px;
   flex: 1;
 }

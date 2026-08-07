@@ -12,7 +12,7 @@
   padding: var(--space-md);
   border-radius: var(--radius-lg);
   border: 2px solid transparent;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
   cursor: pointer;
 }
 

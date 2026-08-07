@@ -44,10 +44,21 @@
   font-weight: 600;
   letter-spacing: 0.01em;
   margin-bottom: 18px;
+  /* The wordmark is a real control now but only ~17px tall. Expand the hit
+     area with a pseudo-element so the visual weight does not change; the 18px
+     margin below means the 12px expansion cannot overlap the heading. */
+  position: relative;
+}
+
+.av2-brand::after {
+  content: '';
+  position: absolute;
+  inset: -12px -8px;
 }
 
 /* The H1 names the ACTION, not the wordmark — the logo is already above. */
 .av2-h1 {
+  text-wrap: balance;
   font-size: 1.32rem;
   font-weight: 680;
   letter-spacing: -0.015em;
@@ -55,6 +66,7 @@
 }
 
 .av2-sub {
+  text-wrap: pretty;
   font-size: 0.88rem;
   color: #8b949e;
   margin: 0 0 20px;
@@ -141,9 +153,15 @@
 
 /* Recovery sits under the field it recovers, not buried at the card's foot. */
 .av2-forgot {
-  display: block;
-  margin: 7px 0 0 auto;
-  padding: 0;
+  /* The label is only ~15px tall. flex + min-height gives it a 40px hit area
+     without moving the text, and width:fit-content keeps margin-left:auto
+     right-aligning it. */
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 40px;
+  margin: 0 0 0 auto;
+  padding: 0 2px;
   background: none;
   border: none;
   color: #7d8590;
@@ -166,10 +184,11 @@
   font-size: 0.97rem;
   font-weight: 650;
   cursor: pointer;
-  transition: background 140ms ease;
+  transition: background 140ms ease, transform 140ms ease;
 }
 
 .av2-submit:hover:not(:disabled) { background: #3fb950; }
+.av2-submit:active:not(:disabled) { transform: scale(0.985); }
 
 .av2-submit:disabled {
   opacity: 0.45;
@@ -179,6 +198,7 @@
 /* Consent stays a real checkbox: the EULA discloses data sale, so explicit
    consent is a legal position, not a design one. Styled to sit quietly. */
 .av2-consent {
+  text-wrap: pretty;
   display: flex;
   align-items: flex-start;
   gap: 9px;
@@ -217,6 +237,14 @@
   font-size: inherit;
   cursor: pointer;
   padding: 0;
+  /* Same hit-area expansion as the wordmark — 17px of text is not a target. */
+  position: relative;
+}
+
+.av2-alt button::after {
+  content: '';
+  position: absolute;
+  inset: -12px -10px;
 }
 
 .av2-alt button:hover { text-decoration: underline; }
@@ -239,4 +267,10 @@
   background: rgb(46 160 67 / 0.1);
   border: 1px solid rgb(46 160 67 / 0.28);
   color: #7ee2a8;
+}
+
+/* The global reduced-motion rule only zeroes durations, which would make
+   the press scale snap rather than not happen. Suppress the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .av2-submit:active:not(:disabled) { transform: none; }
 }

@@ -160,7 +160,7 @@
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 150ms ease;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
 }
 
 .consume-preset-btn.active {
@@ -191,7 +191,7 @@
   font-size: 0.92rem;
   cursor: pointer;
   text-align: left;
-  transition: all 150ms ease;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
 .consume-reason-btn.active {
