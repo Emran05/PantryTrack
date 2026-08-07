@@ -30,16 +30,25 @@ export default function ResetPassword() {
     // module-load exchange — usually BEFORE this component mounts — so check
     // the boot-time snapshot as well as whatever is still in the address bar.
     const hash = window.location.hash || '';
-    const hashLooksLikeRecovery =
+    const freshRecoveryMarker =
       /type=recovery/.test(hash) ||
       /type=recovery/.test(BOOT_HASH) ||
       // PKCE-style link — only when the app BOOTED on this route, so an OAuth
       // ?code= return to the app root can never unlock the form.
-      (BOOT_PATH === '/reset-password' && /[?&]code=/.test(BOOT_SEARCH)) ||
-      sessionStorage.getItem(RECOVERY_FLAG) === '1';
-    if (hashLooksLikeRecovery) {
-      try { sessionStorage.setItem(RECOVERY_FLAG, '1'); } catch { /* private mode */ }
+      (BOOT_PATH === '/reset-password' && /[?&]code=/.test(BOOT_SEARCH));
+    // The mirror is set ONLY from a fresh marker and expires after 15 minutes.
+    // It must never refresh itself on read — a stale flag plus an ambient
+    // session would otherwise unlock the form indefinitely, which is the
+    // exact attack this gate exists to block.
+    if (freshRecoveryMarker) {
+      try { sessionStorage.setItem(RECOVERY_FLAG, String(Date.now())); } catch { /* private mode */ }
     }
+    let mirrorFresh = false;
+    try {
+      const t = Number(sessionStorage.getItem(RECOVERY_FLAG));
+      mirrorFresh = Number.isFinite(t) && t > 0 && (Date.now() - t) < 15 * 60 * 1000;
+    } catch { /* private mode */ }
+    const hashLooksLikeRecovery = freshRecoveryMarker || mirrorFresh;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {

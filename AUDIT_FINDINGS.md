@@ -86,3 +86,18 @@ _The happy path is wired correctly end-to-end (Landing → Auth → auto-created
   - symptom: A user on a weak connection (or offline in the installed PWA) taps "Dashboard"/"Recipes"/"Scan" in the bottom nav and the entire app disappears — a blank white screen, bottom nav and header gone. The only recovery is a manual reload, which offline ju
   - fix: Primary fix (required): add a small class-based ErrorBoundary in src/App.jsx wrapping the Suspense block (or <AppContent/>) whose fallback renders a "Something went wrong — you may be offline" message with a Retry button that resets the boundary state (and optionally calls location.reload()). Secondary hardening: (a) in src/main.jsx add `window.addEventListener('vite:preloadError', ...)` to interc
   - minor (unverified MEDIUM/LOW): Onboarding and preference state is keyed per-device, not per-user, so ; A malformed or truncated invite link shows "check your connection" ins; Privacy policy, EULA and do-not-sell pages exist but nothing in the ap; Landing hero mockups are display:none on every phone but keep running ; simplify: the page-transition overlay stays mounted 2 seconds after na; simplify: the 34-line quick-actions block is duplicated verbatim in th
+
+## Final review — known limitations (documented, not code-fixable client-side)
+
+- **Consent receipt is client-supplied.** `legal_version`/`legal_accepted_at` in
+  auth metadata come from the signup client; a hostile client could omit them.
+  Server-side enforcement would need a DB trigger or edge function validating
+  metadata on signup — decide with the attorney whether required before launch.
+- **Do-Not-Sell sync race resolves toward privacy.** A rare race between the
+  sign-in sticky merge and a debounced pref push can revert an opt-back-IN to
+  opted-out (never the reverse). The toggle UI reflects the final state.
+- **Pending invite token in localStorage** persists across sessions on a shared
+  browser profile; redemption stays server-gated (7-day expiry, 10 uses).
+- **Recovery-flag mirror TTL.** The reset-password unlock mirror expires after
+  15 minutes and never self-refreshes (fixed after the security lens flagged
+  the indefinite-persistence version).
