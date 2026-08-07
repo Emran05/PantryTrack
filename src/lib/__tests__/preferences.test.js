@@ -36,6 +36,10 @@ const {
   toggleFavoriteRecipe,
   getDiet,
   setDiet,
+  getDoNotSell,
+  setDoNotSell,
+  isDoNotSellEffective,
+  isGpcActive,
 } = await import('../preferences');
 
 const flushAsync = () => new Promise((r) => setTimeout(r, 0));
@@ -48,6 +52,38 @@ describe('preferences', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  describe('do-not-sell (CCPA/CPRA opt-out)', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('defaults to opted-in (false)', () => {
+      expect(getDoNotSell()).toBe(false);
+      expect(isDoNotSellEffective()).toBe(false);
+    });
+
+    it('persists an explicit opt-out and can be turned back off', () => {
+      setDoNotSell(true);
+      expect(getDoNotSell()).toBe(true);
+      expect(isDoNotSellEffective()).toBe(true);
+      setDoNotSell(false);
+      expect(getDoNotSell()).toBe(false);
+    });
+
+    it('honors the GPC browser signal even with no stored opt-out', () => {
+      vi.stubGlobal('navigator', { globalPrivacyControl: true });
+      expect(isGpcActive()).toBe(true);
+      expect(getDoNotSell()).toBe(false); // stored flag untouched
+      expect(isDoNotSellEffective()).toBe(true); // but effective opt-out
+    });
+
+    it('GPC absent means the signal is inactive', () => {
+      vi.stubGlobal('navigator', {});
+      expect(isGpcActive()).toBe(false);
+      expect(isDoNotSellEffective()).toBe(false);
+    });
   });
 
   describe('consumption log', () => {
