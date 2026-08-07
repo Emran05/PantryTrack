@@ -8,3 +8,9 @@ dist/
 .vscode/
 .idea/
 CODEBASE_RUNDOWN.md
+# Review screenshots handed to the user during the redesign — throwaway output,
+# not source. Broadened from redesign-preview-* as more surfaces got captured.
+redesign-*.jpeg
+# Per-machine permission allowlist. Holds raw API keys inside Bash() patterns,
+# so it must never be tracked. .claude/settings.json (shared) is tracked.
+.claude/settings.local.json
