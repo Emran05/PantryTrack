@@ -193,6 +193,17 @@ export default function ItemCard({ item, onDelete, onRefresh, onPinChange }) {
       <div
         ref={cardRef}
         className="item-card card animate-fade-in"
+        role="button"
+        tabIndex={0}
+        aria-label={`Edit ${item.name}`}
+        onKeyDown={(e) => {
+          // Keyboard path to the editor — the card is the only affordance
+          // that opens Edit Item (QA HIGH: WCAG 2.1.1 failure without this).
+          if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
+            e.preventDefault();
+            handleCardClick();
+          }
+        }}
         onClick={handleCardClick}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
