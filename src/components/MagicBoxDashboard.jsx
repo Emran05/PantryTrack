@@ -75,11 +75,13 @@ CWWWWWWC
 CCCCCCCC
 `;
 
+// Expiry chips make the mockup read as a real session, not a UI skeleton —
+// the specific detail is the demo (research: Flighty/Cal AI hero pattern).
 const ITEMS = [
-  { grid: GRID_APPLE, name: 'Apple' },
-  { grid: GRID_CARROT, name: 'Carrot' },
-  { grid: GRID_CHEESE, name: 'Cheese' },
-  { grid: GRID_MILK, name: 'Milk' }
+  { grid: GRID_APPLE, name: 'Apple', expiry: '6d left', urgent: false },
+  { grid: GRID_CARROT, name: 'Carrot', expiry: '4d left', urgent: false },
+  { grid: GRID_CHEESE, name: 'Cheese', expiry: '12d left', urgent: false },
+  { grid: GRID_MILK, name: 'Milk', expiry: '2d left', urgent: true }
 ];
 
 export default function MagicBoxDashboard() {
@@ -91,8 +93,8 @@ export default function MagicBoxDashboard() {
     
     // Initial dummy data
     setInventory([
-      { grid: GRID_CHEESE, name: 'Cheese', qty: 1 },
-      { grid: GRID_APPLE, name: 'Apple', qty: 2 }
+      { grid: GRID_CHEESE, name: 'Cheese', qty: 1, expiry: '12d left', urgent: false },
+      { grid: GRID_APPLE, name: 'Apple', qty: 2, expiry: '6d left', urgent: false }
     ]);
 
     const interval = setInterval(() => {
@@ -181,6 +183,15 @@ export default function MagicBoxDashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                <span style={{ fontSize: '18px', display: 'flex' }}><PixelIcon gridStr={inv.grid} /></span>
                <span style={{ color: '#eee', fontWeight: '500' }}>{inv.name}</span>
+               {inv.expiry && (
+                 <span style={{
+                   background: inv.urgent ? 'rgba(239, 68, 68, 0.18)' : 'rgba(255,255,255,0.06)',
+                   color: inv.urgent ? '#fca5a5' : '#9ca3af',
+                   padding: '1px 7px', borderRadius: '10px', fontSize: '11px', fontWeight: 600
+                 }}>
+                   {inv.expiry}
+                 </span>
+               )}
             </div>
             <span style={{ background: 'rgba(168, 85, 247, 0.2)', color: '#d8b4fe', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold', fontSize: '12px' }}>
                x{inv.qty}
