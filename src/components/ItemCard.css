@@ -246,8 +246,11 @@
   }
 }
 
-/* When pinned, the card name shifts right slightly to clear the pin badge */
-.item-card-pin.pinned ~ .item-card-top .item-card-name {
+/* The pin button is absolutely positioned at the card's top-left and is
+   always present, so the name must always clear it — reserving the space
+   only when pinned left the faint unpinned glyph sitting on the title's
+   first letter (QA finding). */
+.item-card-pin ~ .item-card-top .item-card-name {
   padding-left: 28px;
 }
 
