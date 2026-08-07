@@ -2,12 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { consumePantryItem, addShoppingItem } from '../lib/supabaseStorage';
 import { logConsumptionEvent } from '../lib/preferences';
 import { useToast } from './ToastContext';
+import Icon from './Icon';
 import './ConsumeModal.css';
 
 const REASONS = [
-  { id: 'used', label: 'Used / Cooked', emoji: '🍳' },
-  { id: 'wasted', label: 'Expired / Wasted', emoji: '🗑' },
-  { id: 'donated', label: 'Donated / Gave away', emoji: '🤝' },
+  { id: 'used', label: 'Used / Cooked', icon: 'cook' },
+  { id: 'wasted', label: 'Expired / Wasted', icon: 'trash' },
+  { id: 'donated', label: 'Donated / Gave away', icon: 'share' },
 ];
 
 export default function ConsumeModal({ item, pantryId, onClose, onDone }) {
@@ -220,7 +221,7 @@ export default function ConsumeModal({ item, pantryId, onClose, onDone }) {
                 className={`consume-reason-btn ${reason === r.id ? 'active' : ''}`}
                 onClick={() => setReason(r.id)}
               >
-                <span className="consume-reason-emoji" aria-hidden="true">{r.emoji}</span>
+                <span className="consume-reason-emoji" aria-hidden="true"><Icon name={r.icon} size={20} /></span>
                 <span>{r.label}</span>
               </button>
             ))}

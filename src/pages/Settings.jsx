@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { usePantry } from '../contexts/PantryContext';
 import { createPantry, joinPantryById, getAreas, createArea, deleteArea, getProfile, updateProfile, getPantryItems, renamePantry, leavePantry } from '../lib/supabaseStorage';
 import { useToast } from '../components/ToastContext';
+import Icon from '../components/Icon';
 import { resetTourFlag } from '../components/Tour';
 import ThemePicker from '../components/ThemePicker';
 import { setUserApiKey, getKeySource, hasUserKey, hasProjectKey } from '../lib/gemini';
@@ -288,7 +289,7 @@ export default function Settings() {
       } else {
         await enablePushNotifications();
         setPushEnabled(true);
-        showToast('You\'ll get a heads-up before food expires 🎉');
+        showToast('You\'ll get a heads-up before food expires');
       }
     } catch (err) {
       console.error('Push toggle failed:', err);
@@ -600,7 +601,7 @@ export default function Settings() {
                 onClick={handleToggleDoNotSell}
                 style={{ marginTop: '12px' }}
               >
-                {doNotSell ? 'Data sale/sharing: opted out ✓' : 'Do not sell or share my data'}
+                {doNotSell ? 'Data sale/sharing: opted out' : 'Do not sell or share my data'}
               </button>
             )}
             <p className="settings-desc" style={{ marginTop: '16px' }}>
@@ -862,7 +863,7 @@ export default function Settings() {
               onClick={() => window.dispatchEvent(new CustomEvent('pantry-show-whats-new'))}
               style={{ marginTop: '8px' }}
             >
-              <span style={{ marginRight: '8px' }} aria-hidden="true">✨</span>
+              <span style={{ marginRight: '8px', display: 'inline-flex', verticalAlign: '-3px' }}><Icon name="spark" size={15} /></span>
               See What&rsquo;s New
             </button>
           </div>
@@ -887,7 +888,7 @@ export default function Settings() {
         </div>
 
         <p className="settings-footer">
-          Built for students · Reduce food waste 🌱
+          Built for students · Reduce food waste
         </p>
       </div>
     </div>
