@@ -14,6 +14,7 @@ export default function Auth() {
   const [isReset, setIsReset] = useState(false);
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -38,7 +39,10 @@ export default function Auth() {
         options: {
           data: {
             first_name: firstName,
-            last_name: lastName
+            last_name: lastName,
+            // Consent receipt — which legal terms this account accepted, when.
+            legal_version: '2026-08-06-draft',
+            legal_accepted_at: new Date().toISOString()
           }
         }
       });
@@ -196,7 +200,23 @@ export default function Auth() {
               minLength={6}
             />
           </div>
-          <button type="submit" className="btn btn-primary auth-submit" disabled={loading}>
+          {!isLogin && (
+            <label style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', fontSize: '0.85rem', lineHeight: 1.45, marginBottom: 'var(--space-md)', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                style={{ marginTop: '3px', flexShrink: 0 }}
+              />
+              <span>
+                I agree to the <a href="/legal/eula.html" target="_blank" rel="noreferrer">EULA</a> and{' '}
+                <a href="/legal/privacy.html" target="_blank" rel="noreferrer">Privacy Policy</a>, including
+                the sale/sharing of my data as described there.{' '}
+                <a href="/legal/do-not-sell.html" target="_blank" rel="noreferrer">You can opt out any time.</a>
+              </span>
+            </label>
+          )}
+          <button type="submit" className="btn btn-primary auth-submit" disabled={loading || (!isLogin && !agreedToTerms)}>
             {loading ? '...' : (isLogin ? 'Log in' : 'Sign up')}
           </button>
         </form>
