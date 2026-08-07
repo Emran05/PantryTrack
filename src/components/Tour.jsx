@@ -257,8 +257,16 @@ export default function Tour({ onComplete }) {
             className="tour-step-track"
             style={{ transform: `translateX(-${step * 100}%)` }}
           >
-            {STEPS.map((s) => (
-              <div className="tour-step" key={s.id}>
+            {STEPS.map((s, i) => (
+              // All 11 slides stay mounted for the slide animation, so the
+              // off-screen ones must be hidden from assistive tech — otherwise
+              // a screen reader announces every step at once (QA finding).
+              <div
+                className="tour-step"
+                key={s.id}
+                aria-hidden={i !== step ? 'true' : undefined}
+                inert={i !== step ? '' : undefined}
+              >
                 <div className={`tour-illustration ${s.illustrationClass}`}>
                   {s.icon}
                 </div>
