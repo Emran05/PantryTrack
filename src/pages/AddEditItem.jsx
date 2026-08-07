@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getPantryItem, addPantryItem, updatePantryItem, getAreas } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
@@ -137,11 +137,17 @@ export default function AddEditItem() {
     };
   }, [scanning, showToast]);
 
+  // Once the user has engaged the expiry field at all, category selection must
+  // never touch it — Chrome date inputs report '' until every segment is
+  // typed, so a value-based guard alone can overwrite half-entered dates.
+  const dateTouched = useRef(false);
+
   const handleChange = (field, value) => {
+    if (field === 'expirationDate') dateTouched.current = true;
     setForm((prev) => {
       const updated = { ...prev, [field]: value === 'null' ? null : value };
       // Auto-suggest expiration date when category changes and no date is set yet
-      if (field === 'category' && !prev.expirationDate && !isEditing) {
+      if (field === 'category' && !prev.expirationDate && !dateTouched.current && !isEditing) {
         updated.expirationDate = getDefaultExpirationDate(value);
       }
       return updated;
@@ -289,6 +295,7 @@ export default function AddEditItem() {
               id="expiration"
               type="date"
               value={form.expirationDate}
+              onFocus={() => { dateTouched.current = true; }}
               onChange={(e) => handleChange('expirationDate', e.target.value)}
             />
           </div>
