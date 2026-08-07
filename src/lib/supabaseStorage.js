@@ -501,7 +501,7 @@ export async function moveCheckedToPantry(pantryId) {
   }));
 
   const { data, error } = await supabase.rpc('move_checked_to_pantry', {
-    p_pantry: pantryId,
+    p_pantry_id: pantryId,
     p_moves: moves,
   });
   if (!error) {
@@ -553,7 +553,7 @@ export async function importReceiptItems(pantryId, items) {
   }));
 
   const { data, error } = await supabase.rpc('import_receipt_items', {
-    p_pantry: pantryId,
+    p_pantry_id: pantryId,
     p_items: payload,
   });
   if (!error) {
@@ -633,4 +633,48 @@ export async function processReceiptText(rawText, lines) {
  */
 export async function processReceiptImage(imageBase64, mimeType = 'image/jpeg') {
   return withReceiptRateLimit((tierOpts) => parseReceiptGemini(imageBase64, mimeType, tierOpts));
+}
+
+/**
+ * Consume several pantry items in ONE transaction ("I cooked this").
+ * All deductions land or none do — a partial deduction leaves the user with a
+ * pantry that silently disagrees with what they actually cooked.
+ * Falls back to per-item writes only when the RPC is missing (unapplied
+ * migrations), and reports that it did so.
+ */
+export async function consumePantryItems(pantryId, entries) {
+  const payload = entries.map(({ id, qty }) => ({ id, qty }));
+
+  const { data, error } = await supabase.rpc('consume_pantry_items', {
+    p_pantry_id: pantryId,
+    p_items: payload,
+  });
+  if (!error) {
+    return {
+      atomic: true,
+      results: (data ?? []).map((r) => ({
+        id: r.item_id,
+        name: r.item_name,
+        prevQty: r.prev_qty,
+        newQty: r.new_qty,
+        removed: r.removed,
+      })),
+    };
+  }
+  if (error.code !== 'PGRST202') throw error;
+  console.warn('consume_pantry_items RPC missing — apply supabase/migrations. Falling back to per-item writes.');
+
+  const settled = await Promise.allSettled(
+    entries.map(({ id, qty }) => consumePantryItem(id, qty))
+  );
+  settled.filter((r) => r.status === 'rejected')
+    .forEach((r) => console.error('Consume failed:', r.reason));
+  return {
+    atomic: false,
+    results: settled.filter((r) => r.status === 'fulfilled').map((r) => ({
+      id: r.value.id, name: r.value.name, prevQty: r.value.prevQty,
+      newQty: r.value.newQty, removed: r.value.removed,
+    })),
+    failed: settled.filter((r) => r.status === 'rejected').length,
+  };
 }

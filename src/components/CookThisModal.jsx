@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { consumePantryItem } from '../lib/supabaseStorage';
+import { consumePantryItems } from '../lib/supabaseStorage';
 import { logConsumptionEvent } from '../lib/preferences';
 import { nameMatchesIngredient } from '../lib/recipes';
 import { useToast } from './ToastContext';
@@ -56,43 +56,53 @@ export default function CookThisModal({ recipe, items, pantryId, onClose, onDone
     if (submitting || selectedTargets.length === 0) return;
     setSubmitting(true);
 
-    const results = await Promise.allSettled(
-      selectedTargets.map((item) => {
-        const qty = rows[item.id]?.qty ?? 1;
-        return consumePantryItem(item.id, qty).then((r) => {
-          logConsumptionEvent(pantryId, {
-            itemId: item.id,
-            itemName: item.name,
-            category: item.category,
-            qty,
-            unit: item.unit,
-            reason: 'used',
-            finished: r.removed,
-            recipeId: recipe.id,
-            recipeTitle: recipe.title,
-          });
-          return r;
-        });
-      })
-    );
+    // One transaction: every ingredient is deducted or none are. A partial
+    // deduction would leave the pantry disagreeing with what was cooked.
+    let outcome;
+    try {
+      outcome = await consumePantryItems(
+        pantryId,
+        selectedTargets.map((item) => ({ id: item.id, qty: rows[item.id]?.qty ?? 1 }))
+      );
+    } catch (err) {
+      console.error('Cook-this consume failed:', err);
+      setSubmitting(false);
+      showToast('Could not update your pantry — nothing was changed', 'error');
+      return;
+    }
 
-    const ok = results.filter((r) => r.status === 'fulfilled');
-    const finished = ok.filter((r) => r.value.removed).length;
-    const failed = results.length - ok.length;
-    results
-      .filter((r) => r.status === 'rejected')
-      .forEach((r) => console.error('Cook-this consume failed:', r.reason));
+    const byId = new Map(outcome.results.map((r) => [r.id, r]));
+    selectedTargets.forEach((item) => {
+      const r = byId.get(item.id);
+      if (!r) return;
+      logConsumptionEvent(pantryId, {
+        itemId: item.id,
+        itemName: item.name,
+        category: item.category,
+        qty: rows[item.id]?.qty ?? 1,
+        unit: item.unit,
+        reason: 'used',
+        finished: r.removed,
+        recipeId: recipe.id,
+        recipeTitle: recipe.title,
+      });
+    });
+
+    const used = outcome.results.length;
+    const finished = outcome.results.filter((r) => r.removed).length;
+    const failed = outcome.failed || 0;
 
     setSubmitting(false);
 
-    if (ok.length === 0) {
+    if (used === 0) {
       showToast('Could not update your pantry — please try again', 'error');
       return;
     }
-    let msg = `Cooked ${recipe.title} · ${ok.length} item${ok.length !== 1 ? 's' : ''} used`;
+    let msg = `Cooked ${recipe.title} · ${used} item${used !== 1 ? 's' : ''} used`;
     if (finished > 0) msg += ` · ${finished} finished`;
-    if (failed > 0) msg += ` · ${failed} failed`;
-    showToast(msg, failed > 0 ? 'info' : 'success');
+    // Only reachable on the non-atomic fallback path (unapplied migrations).
+    if (failed > 0) msg = `Only ${used} of ${used + failed} items were updated — check your pantry`;
+    showToast(msg, failed > 0 ? 'error' : 'success');
 
     if (onDone) onDone();
     onClose();
