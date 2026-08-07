@@ -53,7 +53,7 @@
 .recipe-card {
   cursor: pointer;
   padding: var(--space-lg);
-  transition: transform var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
 }
 
 .recipe-card:active {

@@ -90,7 +90,7 @@
      Reclaiming the drawer's width makes the name ellipsize at the boundary
      instead. Same var, so it stays exact at every point of the slide. */
   max-width: calc(100% - var(--swipe-offset, 0px));
-  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1), max-width 250ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .item-card-name {
@@ -160,7 +160,7 @@
   border-radius: var(--radius-full);
   font-size: 0.85rem;
   opacity: 0;
-  transition: background var(--transition-fast);
+  transition: opacity var(--transition-fast), background var(--transition-fast);
   background: rgba(239, 68, 68, 0.1);
 }
 
@@ -196,7 +196,7 @@
   background: var(--color-bg-primary);
   color: var(--color-text-muted);
   opacity: 0;
-  transition: opacity var(--transition-fast);
+  transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
 }
 
 .item-card:hover .item-card-actions-toggle,
@@ -231,7 +231,7 @@
   border: none;
   cursor: pointer;
   opacity: 0.35;
-  transition: background var(--transition-fast), filter var(--transition-fast);
+  transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast), filter var(--transition-fast);
   z-index: 1;
 }
 

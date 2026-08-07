@@ -164,7 +164,7 @@
   font-size: 11px;
   color: var(--color-text-muted);
   opacity: 0;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: opacity var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
   flex-shrink: 0;
 }
 

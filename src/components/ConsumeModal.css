@@ -109,7 +109,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: transform 100ms ease, background 150ms ease;
+  transition: transform 100ms ease, background 150ms ease, opacity 150ms ease;
 }
 
 .consume-step-btn:active {
