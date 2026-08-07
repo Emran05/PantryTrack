@@ -21,6 +21,12 @@ const SCANNED = [
 
 // Expiry colour carries information, not decoration: red = act today,
 // amber = this week, neutral = fine.
+// Scanned items were prepended, which left a 30-day item sitting above a 3-day
+// one while the line right above the list promises the soonest-to-expire comes
+// first. Sorting on insert also makes the demo *show* the sort it claims: each
+// scanned row drops into its place by date instead of piling on top.
+const byExpiry = (list) => [...list].sort((a, b) => a.days - b.days);
+
 function expiry(days) {
   if (days <= 2) return { label: days <= 1 ? 'Today' : `${days} days`, tone: 'urgent' };
   if (days <= 7) return { label: `${days} days`, tone: 'soon' };
@@ -43,13 +49,13 @@ export default function LivePantryHero({ onSaveClick }) {
     if (phase !== 'idle') return;
     setPhase('scanning');
     if (REDUCED) {
-      setItems((prev) => [...SCANNED, ...prev]);
+      setItems((prev) => byExpiry([...SCANNED, ...prev]));
       setPhase('done');
       return;
     }
     SCANNED.forEach((item, i) => {
       timers.current.push(
-        setTimeout(() => setItems((prev) => [item, ...prev]), 420 + i * 260)
+        setTimeout(() => setItems((prev) => byExpiry([item, ...prev])), 420 + i * 260)
       );
     });
     timers.current.push(setTimeout(() => setPhase('done'), 420 + SCANNED.length * 260));
