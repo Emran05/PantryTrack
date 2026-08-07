@@ -121,6 +121,11 @@ export default function ItemCard({ item, onDelete, onRefresh, onPinChange }) {
       }
     } catch (err) {
       console.error(err);
+      // Roll back the optimistic base — but only if no newer tap has moved
+      // it — so a failed write can't poison every subsequent tap (and then
+      // silently clobber a housemate's concurrent edit with a stale base).
+      if (pendingQty.current === newQty) pendingQty.current = null;
+      if (onRefresh) onRefresh();
       showToast('Failed to update quantity', 'error');
     }
   };

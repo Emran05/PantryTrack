@@ -93,6 +93,7 @@ _The happy path is wired correctly end-to-end (Landing → Auth → auto-created
   auth metadata come from the signup client; a hostile client could omit them.
   Server-side enforcement would need a DB trigger or edge function validating
   metadata on signup — decide with the attorney whether required before launch.
+- **Do-Not-Sell offline opt-out now retried.** A push that fails offline retries on the browser online event and re-pushes at next sign-in sync (react-lens MEDIUM, fixed).
 - **Do-Not-Sell sync race resolves toward privacy.** A rare race between the
   sign-in sticky merge and a debounced pref push can revert an opt-back-IN to
   opted-out (never the reverse). The toggle UI reflects the final state.

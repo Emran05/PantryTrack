@@ -234,6 +234,14 @@ let pushPrefsTimer = null;
 // --- CCPA/CPRA Do-Not-Sell-or-Share opt-out --------------------------------
 const DNS_KEY = 'pantry_do_not_sell';
 
+// Backs the "will finish syncing when you're back online" promise: any pref
+// push that failed offline (the Do-Not-Sell toggle's especially) retries the
+// moment connectivity returns. The upsert is idempotent, so a no-op push when
+// nothing changed is harmless.
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('online', () => schedulePushPrefs());
+}
+
 export function isGpcActive() {
   return typeof navigator !== 'undefined' && navigator.globalPrivacyControl === true;
 }
@@ -334,6 +342,9 @@ export async function syncUserPreferences() {
   // Do-Not-Sell merges sticky toward privacy: true from either side wins.
   // Turning it OFF only happens through an explicit setDoNotSell(false) push.
   safeSet(DNS_KEY, data.do_not_sell === true || getDoNotSell());
+  // Local opt-out that never reached the server (e.g. toggled while offline)
+  // gets pushed up now — the server flag is what actually stops data use.
+  if (getDoNotSell() && data.do_not_sell !== true) schedulePushPrefs();
 
   // First sync on THIS device merges the local state up instead of discarding
   // it — otherwise a user with favorites/pins on two devices loses whichever
