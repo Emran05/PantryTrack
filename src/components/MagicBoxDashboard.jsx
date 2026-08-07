@@ -109,11 +109,20 @@ export default function MagicBoxDashboard() {
       // Match the CSS animation duration for 'dropIntoBox'
       setTimeout(() => {
         setInventory(prev => {
+          // A lingering visitor must never see Apple x17 — cap counts at a
+          // believable 3, and once everything is maxed, loop back to the seed.
+          const allMaxed = prev.length >= 4 && prev.every(i => i.qty >= 3);
+          if (allMaxed) {
+            return [
+              { grid: GRID_CHEESE, name: 'Cheese', qty: 1, expiry: '12d left', urgent: false },
+              { grid: GRID_APPLE, name: 'Apple', qty: 2, expiry: '6d left', urgent: false }
+            ];
+          }
           const exists = prev.find(i => i.name === item.name);
           let next;
           if (exists) {
             next = [
-              { ...exists, qty: exists.qty + 1 },
+              { ...exists, qty: Math.min(exists.qty + 1, 3) },
               ...prev.filter(i => i.name !== item.name)
             ];
           } else {
@@ -122,7 +131,7 @@ export default function MagicBoxDashboard() {
           return next.slice(0, 4); // Keep top 4 recently updated
         });
         setFallingItem(null);
-      }, 800); 
+      }, 800);
     }, 2500);
 
     return () => clearInterval(interval);
