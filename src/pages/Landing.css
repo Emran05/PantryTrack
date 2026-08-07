@@ -82,17 +82,118 @@
   perspective: 1000px;
 }
 
-.hero-glow {
+/* --- Dynamic hero background ---------------------------------------------
+   Aurora color field + independent texture layers. Every animation is
+   transform/opacity only (compositor-cheap); color blobs, grain, and grid
+   each run on different clocks and directions so the composite never reads
+   as a loop. All of it freezes under prefers-reduced-motion. */
+.hero-aurora {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.4) 0%, transparent 70%);
-  transform: translate(-50%, -50%);
+  inset: 0;
   z-index: 0;
-  filter: blur(60px);
+  overflow: hidden;
   pointer-events: none;
+}
+
+.aurora-blob {
+  position: absolute;
+  width: 55vmax;
+  height: 55vmax;
+  border-radius: 50%;
+  filter: blur(90px);
+  will-change: transform;
+  opacity: 0.55;
+}
+
+.blob-a {
+  background: radial-gradient(circle at 35% 35%, rgba(99, 102, 241, 0.55) 0%, transparent 65%);
+  top: -18%;
+  left: -12%;
+  animation: drift-a 38s ease-in-out infinite alternate;
+}
+
+.blob-b {
+  background: radial-gradient(circle at 60% 40%, rgba(34, 197, 94, 0.4) 0%, transparent 65%);
+  bottom: -22%;
+  right: -14%;
+  animation: drift-b 47s ease-in-out infinite alternate;
+}
+
+.blob-c {
+  background: radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.3) 0%, transparent 60%);
+  top: 30%;
+  left: 55%;
+  width: 40vmax;
+  height: 40vmax;
+  animation: drift-c 59s ease-in-out infinite alternate;
+}
+
+.blob-d {
+  background: radial-gradient(circle at 45% 55%, rgba(245, 158, 11, 0.18) 0%, transparent 60%);
+  top: 55%;
+  left: 5%;
+  width: 34vmax;
+  height: 34vmax;
+  animation: drift-d 71s ease-in-out infinite alternate;
+}
+
+@keyframes drift-a {
+  from { transform: translate(0, 0) scale(1) rotate(0deg); }
+  to   { transform: translate(14vw, 10vh) scale(1.25) rotate(35deg); }
+}
+@keyframes drift-b {
+  from { transform: translate(0, 0) scale(1.15) rotate(0deg); }
+  to   { transform: translate(-12vw, -12vh) scale(0.9) rotate(-28deg); }
+}
+@keyframes drift-c {
+  from { transform: translate(0, 0) scale(0.95); }
+  to   { transform: translate(-16vw, 12vh) scale(1.2); }
+}
+@keyframes drift-d {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(10vw, -14vh) scale(1.3); }
+}
+
+/* Texture layer 1: SVG turbulence grain, panning on its own slower clock and
+   diagonal — deliberately decoupled from the color drift. Oversized so the
+   pan never exposes an edge. */
+.aurora-grain {
+  position: absolute;
+  inset: -60%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  background-size: 240px 240px;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  will-change: transform;
+  animation: grain-pan 93s linear infinite;
+}
+
+@keyframes grain-pan {
+  from { transform: translate(0, 0) rotate(0.001deg); }
+  to   { transform: translate(240px, 480px) rotate(0.001deg); }
+}
+
+/* Texture layer 2: faint dot grid drifting the opposite direction, slower
+   still — the second independent texture that makes the field feel bespoke. */
+.aurora-grid {
+  position: absolute;
+  inset: -40%;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.35) 1px, transparent 1.5px);
+  background-size: 44px 44px;
+  opacity: 0.045;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 30%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 30%, transparent 75%);
+  will-change: transform;
+  animation: grid-pan 127s linear infinite;
+}
+
+@keyframes grid-pan {
+  from { transform: translate(0, 0); }
+  to   { transform: translate(-176px, 88px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-blob, .aurora-grain, .aurora-grid { animation: none; }
 }
 
 .hero-content {
@@ -107,6 +208,14 @@
   line-height: 1.1;
   letter-spacing: -2px;
   margin-bottom: var(--space-md);
+}
+
+/* Gradient-clip must live on the STATIC text only: background-clip:text on
+   the parent h1 would paint its gradient through the glyph outlines of every
+   descendant — including the opacity-0 rotator variants — rendering all of
+   them overlapped at once. */
+.hero-title-static {
+  display: block;
   background: linear-gradient(135deg, #fff 0%, #aaa 100%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -130,8 +239,11 @@
 .hero-rotator {
   display: block;
   position: relative;
-  height: 1.15em;
+  font-size: 0.55em;
+  height: 1.3em;
   overflow: hidden;
+  white-space: nowrap;
+  letter-spacing: -1px;
 }
 
 .hero-rotator span {

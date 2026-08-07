@@ -138,10 +138,19 @@ export default function Landing() {
 
       {/* Hero Section */}
       <header className="landing-hero">
-        <div className="hero-glow"></div>
+        {/* Dynamic background: aurora color field + grain texture, each layer
+            on its own animation clock so the combination never visibly loops. */}
+        <div className="hero-aurora" aria-hidden="true">
+          <span className="aurora-blob blob-a"></span>
+          <span className="aurora-blob blob-b"></span>
+          <span className="aurora-blob blob-c"></span>
+          <span className="aurora-blob blob-d"></span>
+          <span className="aurora-grain"></span>
+          <span className="aurora-grid"></span>
+        </div>
         <div className="hero-content">
           <h1 className="hero-title">
-            Never buy the same milk twice&nbsp;—
+            <span className="hero-title-static">Never buy the same milk twice&nbsp;—</span>
             <span className="hero-rotator" aria-hidden="true">
               <span>in your dorm.</span>
               <span>with your roommates.</span>
