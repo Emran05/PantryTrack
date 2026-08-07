@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { getPantryItems, deletePantryItem } from '../lib/supabaseStorage';
+import { getPantryItems, deletePantryItem, addPantryItem } from '../lib/supabaseStorage';
 import { usePantry } from '../contexts/PantryContext';
 import { CATEGORIES } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
@@ -81,12 +81,36 @@ export default function Pantry() {
     try {
       await deletePantryItem(id);
       refresh();
-      showToast(`"${item?.name || 'Item'}" removed`);
+      // Delete is one tap with no confirm step — an Undo action is the
+      // recovery path (restores the item's full detail, not just the name).
+      showToast(`"${item?.name || 'Item'}" removed`, 'success', {
+        action: item && {
+          label: 'Undo',
+          onClick: async () => {
+            try {
+              await addPantryItem(activePantry.id, {
+                name: item.name,
+                category: item.category,
+                quantity: item.quantity,
+                unit: item.unit,
+                expirationDate: item.expirationDate || '',
+                notes: item.notes || '',
+                area_id: item.area_id || null,
+              }, { skipDuplicateCheck: true });
+              refresh();
+              showToast(`"${item.name}" restored`);
+            } catch (err) {
+              console.error('Undo failed:', err);
+              showToast('Could not restore the item', 'error');
+            }
+          },
+        },
+      });
     } catch (err) {
       console.error('Failed to delete item:', err);
       showToast('Failed to delete item', 'error');
     }
-  }, [items, refresh, showToast]);
+  }, [items, refresh, showToast, activePantry]);
 
   const handleSortChange = (value) => {
     setSortBy(value);
@@ -194,9 +218,14 @@ export default function Pantry() {
               });
               return (
                 <div key={area} className="pantry-area-group">
-                  <h3 className="pantry-area-title" style={{ marginTop: '16px', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                    {area}
-                  </h3>
+                  {/* No heading when there is only one implicit group — a lone
+                      "UNASSIGNED" label is database vocabulary telling a new
+                      user something is missing. */}
+                  {!(area === 'Unassigned' && Object.keys(groupedItems).length === 1) && (
+                    <h3 className="pantry-area-title" style={{ marginTop: '16px', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                      {area === 'Unassigned' ? 'Everything else' : area}
+                    </h3>
+                  )}
                   {sorted.map((item) => (
                     <ItemCard key={item.id} item={item} onDelete={handleDelete} onRefresh={refresh} onPinChange={() => setPinTick((t) => t + 1)} />
                   ))}
