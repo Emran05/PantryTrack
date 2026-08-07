@@ -25,7 +25,10 @@ export default function SyncCanvas() {
     window.addEventListener('resize', resize);
 
     // Emojis representing grocery items being synced
-    const items = ['🍎', '🧀', '🥩', '🥦', '🍞', '🥛', '🥕', '🥚'];
+    // Custom-drawn packet glyphs — the icon language's clipped-corner motif in
+// canvas form. No emoji, no font dependency, no glyph-coverage surprises
+// across platforms.
+const GLYPHS = ['box', 'bar', 'ring', 'notch'];
     
     class Packet {
       constructor() {
@@ -41,7 +44,7 @@ export default function SyncCanvas() {
         // Target vertical center with slight scattering
         this.y = resizeInfo.height / 2 + (Math.random() - 0.5) * 60;
         this.speed = 1.5 + Math.random() * 2;
-        this.emoji = items[Math.floor(Math.random() * items.length)];
+        this.glyph = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
         this.waveOffset = Math.random() * Math.PI * 2;
         this.waveSpeed = 0.02 + Math.random() * 0.03;
         this.amplitude = 10 + Math.random() * 15;
@@ -59,18 +62,32 @@ export default function SyncCanvas() {
       
       draw() {
         ctx.save();
-        ctx.font = '24px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        
         const currentY = this.y + Math.sin(this.waveOffset) * this.amplitude;
         this.waveOffset += this.waveSpeed;
-        
-        // Glow effect
+
+        ctx.translate(this.x, currentY);
+        ctx.strokeStyle = 'rgba(200, 180, 255, 0.95)';
+        ctx.lineWidth = 1.6;
+        ctx.lineJoin = 'miter';
         ctx.shadowColor = 'rgba(168, 85, 247, 0.6)';
         ctx.shadowBlur = 10;
-        
-        ctx.fillText(this.emoji, this.x, currentY);
+
+        const r = 8;
+        ctx.beginPath();
+        if (this.glyph === 'box') {
+          // Square with a clipped top-right corner — the family signature.
+          ctx.moveTo(-r, -r); ctx.lineTo(r - 4, -r); ctx.lineTo(r, -r + 4);
+          ctx.lineTo(r, r); ctx.lineTo(-r, r); ctx.closePath();
+        } else if (this.glyph === 'bar') {
+          ctx.moveTo(-r, -3); ctx.lineTo(r, -3);
+          ctx.moveTo(-r, 3); ctx.lineTo(r - 5, 3);
+        } else if (this.glyph === 'ring') {
+          ctx.arc(0, 0, r - 1, 0.35, Math.PI * 2);
+        } else {
+          // Notch: two strokes meeting at a square corner.
+          ctx.moveTo(-r, r); ctx.lineTo(-r, -r); ctx.lineTo(r, -r);
+        }
+        ctx.stroke();
         ctx.restore();
       }
     }

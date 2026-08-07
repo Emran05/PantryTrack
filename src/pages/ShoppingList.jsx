@@ -9,6 +9,7 @@ import {
 import { usePantry } from '../contexts/PantryContext';
 import { UNITS, CATEGORIES, getCategoryInfo } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
+import Icon from '../components/Icon';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import './ShoppingList.css';
 
@@ -334,7 +335,7 @@ export default function ShoppingList() {
                   onClick={() => handleDelete(item.id)}
                   aria-label="Remove"
                 >
-                  ✕
+                  <Icon name="close" size={14} />
                 </button>
               </div>
             ))}
@@ -369,7 +370,7 @@ export default function ShoppingList() {
                   onClick={() => handleDelete(item.id)}
                   aria-label="Remove"
                 >
-                  ✕
+                  <Icon name="close" size={14} />
                 </button>
               </div>
             ))}

@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import Icon from './Icon';
 import { reportError } from '../lib/errorReporting';
 
 // The only class component in the app — React error boundaries can't be
@@ -28,7 +29,7 @@ export default class ErrorBoundary extends Component {
     if (this.state.error) {
       return (
         <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '24px', textAlign: 'center', fontFamily: "'Inter', sans-serif" }}>
-          <span style={{ fontSize: '2rem' }}>😵</span>
+          <span style={{ color: '#d29922' }}><Icon name="warning" size={30} /></span>
           <p style={{ margin: 0, fontWeight: 600 }}>Something went wrong</p>
           <p style={{ margin: 0, fontSize: '0.9rem', opacity: 0.7 }}>
             You may be offline, or a new version of the app was just published.

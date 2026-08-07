@@ -7,6 +7,7 @@ import { getExpirationStatus, getDaysUntilExpiration } from '../lib/helpers';
 import { getDiet, setDiet, DIETS, getFavoriteRecipeIds, toggleFavoriteRecipe, PREFS_SYNCED_EVENT } from '../lib/preferences';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useToast } from '../components/ToastContext';
+import Icon from '../components/Icon';
 import CookThisModal from '../components/CookThisModal';
 import './Recipes.css';
 
@@ -192,7 +193,7 @@ export default function Recipes() {
       <div className="recipes-header animate-fade-in">
         <h2 className="page-title">Recipes</h2>
         <p className="page-subtitle">
-          {isUsingAI ? '✨ AI-powered suggestions based on your pantry' : 'Dishes you can make with what you have'}
+          {isUsingAI ? 'AI-powered suggestions based on your pantry' : 'Dishes you can make with what you have'}
         </p>
       </div>
 
@@ -208,7 +209,7 @@ export default function Recipes() {
           </button>
         ) : (
           <button className="btn btn-primary btn-full ai-generate-btn animate-fade-in" onClick={fetchAINow}>
-            <span aria-hidden="true">✨</span>
+            <Icon name="spark" size={15} />
             Generate AI recipes from my pantry
           </button>
         )
@@ -370,7 +371,7 @@ export default function Recipes() {
         <div className="recipe-card-top">
           <div className="recipe-card-info">
             <h3 className="recipe-card-title">
-              {recipe.isAI && <span style={{ marginRight: '6px', fontSize: '0.9em' }}>✨</span>}
+              {recipe.isAI && <span style={{ marginRight: '6px', display: 'inline-flex', verticalAlign: '-2px' }}><Icon name="spark" size={13} /></span>}
               {recipe.title}
             </h3>
             <div className="recipe-card-meta">

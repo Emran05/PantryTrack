@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
+import Icon from './Icon';
 
 const ToastContext = createContext(null);
 
@@ -63,7 +64,7 @@ function ToastMessage({ toast, onDismiss }) {
       aria-atomic="true"
     >
       <span className="toast-icon">
-        {toast.type === 'success' ? '✓' : toast.type === 'error' ? '✕' : 'ℹ'}
+        <Icon name={toast.type === 'success' ? 'check' : toast.type === 'error' ? 'close' : 'info'} size={16} />
       </span>
       <span className="toast-message">{toast.message}</span>
       {toast.action && (

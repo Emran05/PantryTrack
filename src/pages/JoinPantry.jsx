@@ -86,7 +86,7 @@ export default function JoinPantry() {
     return (
       <div className="auth-container animate-fade-in">
         <div className="auth-card">
-          <h1 className="auth-title">You're invited! 🎉</h1>
+          <h1 className="auth-title">You&rsquo;re invited</h1>
           <p className="auth-subtitle">
             Someone wants to share their pantry with you. Log in or create an
             account and you'll join automatically.
