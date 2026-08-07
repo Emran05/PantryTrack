@@ -175,3 +175,68 @@
 }
 
 .fnav__cta:hover { background: #3fb950; }
+
+/* ---- mobile disclosure ----
+ * The section links are desktop-only by design, but hiding them with no
+ * replacement meant a phone visitor could not reach "Why it's free" — the
+ * trust page — from the header at all. The panel is a plain opaque sheet on
+ * purpose: a full-width backdrop-filter re-rasterises every scroll frame,
+ * which is the cost this whole component was built to avoid.
+ */
+.fnav__burger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;                 /* WCAG 2.2 target size */
+  height: 44px;
+  margin-right: -10px;         /* optical alignment with the pill edge */
+  border: none;
+  background: none;
+  color: #e6edf3;
+  cursor: pointer;
+  border-radius: 10px;
+}
+
+.fnav__burger:hover { background: rgb(255 255 255 / 0.08); }
+
+.fnav__menu {
+  /* .fnav is pointer-events:none so the gutters beside the island stay
+     click-through; every interactive descendant must opt back in. */
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 12px calc(10px + env(safe-area-inset-bottom));
+  background: rgb(13 17 23 / 0.98);
+  border-bottom: 1px solid rgb(255 255 255 / 0.07);
+}
+
+.fnav__menu[hidden] { display: none; }
+
+.fnav__menu-link {
+  min-height: 48px;
+  padding: 0 4px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgb(255 255 255 / 0.05);
+  color: #adbac7;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.fnav__menu-link:last-child { border-bottom: none; }
+.fnav__menu-link:hover { color: #e6edf3; }
+
+/* Desktop: the links are already in the bar, so the disclosure is redundant.
+   "Log in" returns to the pill, where it lives at this width. */
+@media (min-width: 901px) {
+  .fnav__burger,
+  .fnav__menu { display: none; }
+}
+
+/* Mobile: the pill has room for one action plus the toggle. "Log in" moves
+   into the panel rather than competing with the primary CTA. */
+@media (max-width: 900px) {
+  .fnav__login { display: none; }
+}
