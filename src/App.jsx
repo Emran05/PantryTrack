@@ -9,9 +9,9 @@ import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import Tour, { isTourCompleted } from './components/Tour';
 import WhatsNew, { shouldShowWhatsNew, markWhatsNewSeen } from './components/WhatsNew';
+// The previous landing and auth pages. No longer routed — kept in the tree so
+// reverting the swap is repointing two routes rather than restoring files.
 import Landing from './pages/Landing';
-// Redesign proposal, reachable at /preview-landing only. Not linked from
-// anywhere; the live landing stays at '/' until the owner approves.
 const LandingV2 = lazy(() => import('./pages/LandingV2'));
 const WhyFree = lazy(() => import('./pages/WhyFree'));
 const AuthV2 = lazy(() => import('./pages/AuthV2'));
@@ -106,11 +106,9 @@ function AppContent() {
   if (!user) {
     return (
       <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/preview-landing" element={<Suspense fallback={null}><LandingV2 /></Suspense>} />
+        <Route path="/" element={<Suspense fallback={null}><LandingV2 /></Suspense>} />
         <Route path="/why-free" element={<Suspense fallback={null}><WhyFreeRoute /></Suspense>} />
-        <Route path="/preview-auth" element={<Suspense fallback={null}><AuthV2 /></Suspense>} />
-        <Route path="/login" element={<Auth />} />
+        <Route path="/login" element={<Suspense fallback={null}><AuthV2 /></Suspense>} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/join/:token" element={<JoinPantry />} />
         <Route path="*" element={<Navigate to="/" replace />} />

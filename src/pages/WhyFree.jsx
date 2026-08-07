@@ -3,7 +3,7 @@ import FloatingNav from '../components/FloatingNav';
 import SiteFooter from '../components/SiteFooter';
 import { useAuth } from '../contexts/AuthContext';
 import { initReveals } from '../lib/reveal';
-import { AUTH_LOGIN, AUTH_SIGNUP } from '../lib/redesignRoutes';
+import { AUTH_LOGIN, AUTH_SIGNUP, HOME } from '../lib/redesignRoutes';
 import './WhyFree.css';
 
 // Replaces a pricing page (DESIGN_SYSTEM.md §7). Every researched product with
@@ -52,7 +52,7 @@ export default function WhyFree({ onNavigate }) {
         // They used to no-op here, so two of the five nav items were simply
         // dead. Send them where the sections actually live; LandingV2 reads
         // the hash on mount and scrolls to it.
-        onNavigate={(to) => go(to.startsWith('#') ? `/preview-landing${to}` : to)}
+        onNavigate={(to) => go(to.startsWith('#') ? `${HOME}${to}` : to)}
       />
 
       <main className="wf-main">

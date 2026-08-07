@@ -5,7 +5,7 @@ import Icon from '../components/Icon';
 import { HOME } from '../lib/redesignRoutes';
 import './AuthV2.css';
 
-// Auth redesign proposal (DESIGN_SYSTEM.md §5). Reachable at /preview-auth.
+// The auth page (DESIGN_SYSTEM.md §5). Shipped to /login 2026-08-07.
 //
 // Applied from nine measured production auth pages:
 //   • opaque card + hairline ring (zero of the nine use backdrop-filter)
@@ -39,7 +39,7 @@ export default function AuthV2() {
   // Switching mode has to move the URL too, or a reload silently throws the
   // user back to whatever ?mode= said — someone who switched to log in, then
   // refreshed, landed on signup again. Built from location.pathname so it keeps
-  // working when this page is repointed from /preview-auth to /login at ship.
+  // built from location.pathname, so it survived the preview -> /login swap.
   const switchMode = (login) => {
     setIsLogin(login);
     reset();

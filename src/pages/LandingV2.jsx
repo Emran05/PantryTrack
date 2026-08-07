@@ -8,7 +8,7 @@ import { initReveals } from '../lib/reveal';
 import { AUTH_LOGIN, AUTH_SIGNUP } from '../lib/redesignRoutes';
 import './LandingV2.css';
 
-// Redesign proposal — see DESIGN_DIRECTION.md. Reachable at /preview-landing
+// The landing page — see DESIGN_DIRECTION.md. Shipped to '/' 2026-08-07
 // while the current landing stays live at /. Nothing merges without approval.
 //
 // Direction: the hero IS the pantry. No decorative gradient field, no 6rem
@@ -21,7 +21,7 @@ export default function LandingV2() {
   useEffect(() => initReveals(rootRef.current || document), []);
 
   // Arriving from another page's header (/why-free links "How it works" here as
-  // /preview-landing#how), or on a cold deep-link.
+  // /#how), or on a cold deep-link.
   //
   // A single deferred scroll is not enough: this page is lazy-loaded and its
   // sections animate in, so the target's offset keeps moving for a while after
