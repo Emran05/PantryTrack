@@ -17,6 +17,8 @@ import {
   enablePushNotifications,
   disablePushNotifications,
 } from '../lib/push';
+import { isDoNotSellEffective, setDoNotSell, isGpcActive } from '../lib/preferences';
+import { supabase } from '../lib/supabase';
 import './Settings.css';
 
 export default function Settings() {
@@ -287,6 +289,42 @@ export default function Settings() {
     window.dispatchEvent(new CustomEvent('pantry-restart-tour'));
   };
 
+  const [doNotSell, setDoNotSellUi] = useState(isDoNotSellEffective());
+  const [deleteArmed, setDeleteArmed] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleToggleDoNotSell = () => {
+    const next = !doNotSell;
+    setDoNotSell(next);
+    setDoNotSellUi(next);
+    showToast(next ? 'Opted out of data sale and sharing' : 'Opted back in to data sale and sharing');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deleteArmed) {
+      setDeleteArmed(true);
+      return;
+    }
+    setDeleting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/delete-account', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token || ''}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast('Account deleted');
+      await signOut();
+      navigate('/');
+    } catch (err) {
+      console.error('Account deletion failed:', err);
+      showToast('Deletion failed — try again or email support', 'error');
+      setDeleteArmed(false);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleExportCSV = async () => {
     if (!activePantry) return;
     setLoading(true);
@@ -469,6 +507,49 @@ export default function Settings() {
                     : 'This browser doesn’t support push notifications yet. On iPhone, add the app to your Home Screen first, then reopen it here.'}
               </p>
             )}
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <h3 className="settings-section-title">Privacy & Legal</h3>
+          <div className="settings-card card">
+            <p className="settings-desc">
+              PantrySnap is free because we may sell or share some usage data, as
+              spelled out in the privacy policy. Opting out never limits the app.
+            </p>
+            {isGpcActive() ? (
+              <p className="settings-desc" style={{ marginTop: '12px', fontStyle: 'italic' }}>
+                Your browser sends the Global Privacy Control signal, so you’re
+                already opted out on this device.
+              </p>
+            ) : (
+              <button
+                className={`btn ${doNotSell ? 'btn-secondary' : 'btn-primary'} btn-full`}
+                onClick={handleToggleDoNotSell}
+                style={{ marginTop: '12px' }}
+              >
+                {doNotSell ? 'Data sale/sharing: opted out ✓' : 'Do not sell or share my data'}
+              </button>
+            )}
+            <p className="settings-desc" style={{ marginTop: '16px' }}>
+              <a href="/legal/privacy.html" target="_blank" rel="noreferrer">Privacy Policy</a>
+              {' · '}
+              <a href="/legal/eula.html" target="_blank" rel="noreferrer">EULA</a>
+              {' · '}
+              <a href="/legal/do-not-sell.html" target="_blank" rel="noreferrer">Do Not Sell or Share</a>
+            </p>
+            <p className="settings-desc" style={{ marginTop: '16px' }}>
+              Deleting your account permanently removes your data, including
+              pantries only you belong to. Shared pantries stay with your housemates.
+            </p>
+            <button
+              className="btn btn-secondary btn-full"
+              onClick={handleDeleteAccount}
+              disabled={deleting}
+              style={{ marginTop: '12px', color: '#c0392b', borderColor: '#c0392b' }}
+            >
+              {deleting ? 'Deleting…' : deleteArmed ? 'Tap again to permanently delete' : 'Delete my account'}
+            </button>
           </div>
         </div>
 

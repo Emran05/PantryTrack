@@ -78,7 +78,10 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request).then((response) => {
-        if (response && response.status === 200) {
+        // Only the app entry may refresh the cached shell — a navigation to a
+        // real static page (e.g. /legal/privacy.html) must not become the
+        // offline fallback for the whole app.
+        if (response && response.status === 200 && (url.pathname === '/' || url.pathname === '/index.html')) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', clone));
         }

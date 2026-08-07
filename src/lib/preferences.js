@@ -231,6 +231,27 @@ function collectLocalPins() {
 
 let pushPrefsTimer = null;
 
+// --- CCPA/CPRA Do-Not-Sell-or-Share opt-out --------------------------------
+const DNS_KEY = 'pantry_do_not_sell';
+
+export function isGpcActive() {
+  return typeof navigator !== 'undefined' && navigator.globalPrivacyControl === true;
+}
+
+export function getDoNotSell() {
+  return safeGet(DNS_KEY, false) === true;
+}
+
+/** Stored flag OR the browser's Global Privacy Control signal. */
+export function isDoNotSellEffective() {
+  return getDoNotSell() || isGpcActive();
+}
+
+export function setDoNotSell(value) {
+  safeSet(DNS_KEY, value === true);
+  schedulePushPrefs();
+}
+
 // Debounced whole-row upsert — pins toggle in quick bursts.
 function schedulePushPrefs() {
   if (pushPrefsTimer) clearTimeout(pushPrefsTimer);
@@ -249,6 +270,7 @@ async function pushUserPreferences() {
     diet: getDiet(),
     favorite_recipes: getFavoriteRecipeIds(),
     pinned_items: collectLocalPins(),
+    do_not_sell: getDoNotSell() || isGpcActive(),
     updated_at: new Date().toISOString(),
   });
   if (error) {
@@ -288,6 +310,10 @@ export async function syncUserPreferences() {
   const serverDiet = data.diet || 'all';
   const serverFavs = Array.isArray(data.favorite_recipes) ? data.favorite_recipes : [];
   const serverPins = data.pinned_items && typeof data.pinned_items === 'object' ? data.pinned_items : {};
+
+  // Do-Not-Sell merges sticky toward privacy: true from either side wins.
+  // Turning it OFF only happens through an explicit setDoNotSell(false) push.
+  safeSet(DNS_KEY, data.do_not_sell === true || getDoNotSell());
 
   // First sync on THIS device merges the local state up instead of discarding
   // it — otherwise a user with favorites/pins on two devices loses whichever
