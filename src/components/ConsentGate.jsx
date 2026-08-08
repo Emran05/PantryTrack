@@ -70,7 +70,7 @@ export default function ConsentGate() {
           We need your agreement — and your age range — before your pantry opens.
         </p>
 
-        {error && <div className="av2-msg av2-msg-error">{error}</div>}
+        {error && <div className="av2-msg av2-msg-error" role="alert">{error}</div>}
 
         <form onSubmit={submit}>
           <div className="av2-field">

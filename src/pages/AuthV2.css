@@ -143,12 +143,16 @@
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
-.av2-input::placeholder { color: #545d68; }
+/* #757e89 = 4.60:1 on the #0d1117 input; the old #545d68 was 2.83:1 and read as
+   illegible placeholder text (WCAG 1.4.3). */
+.av2-input::placeholder { color: #757e89; }
 
 .av2-input:focus {
+  /* A 0.18-alpha green glow measured ~1.27:1 against the card — effectively no
+     visible focus indicator (WCAG 2.4.7). Solid ring + brighter border instead. */
   outline: none;
-  border-color: #2ea043;
-  box-shadow: 0 0 0 3px rgb(46 160 67 / 0.18);
+  border-color: #3fb950;
+  box-shadow: 0 0 0 2px #0d1117, 0 0 0 4px #3fb950;
 }
 
 /* Recovery sits under the field it recovers, not buried at the card's foot. */

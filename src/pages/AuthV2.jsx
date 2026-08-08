@@ -142,8 +142,10 @@ export default function AuthV2() {
             : 'Free for students. No card, and nothing to download.'}
         </p>
 
-        {error && <div className="av2-msg av2-msg-error">{error}</div>}
-        {info && <div className="av2-msg av2-msg-info">{info}</div>}
+        {/* role=alert so a screen reader announces auth errors and the
+            confirmation message, which otherwise appeared silently. */}
+        {error && <div className="av2-msg av2-msg-error" role="alert">{error}</div>}
+        {info && <div className="av2-msg av2-msg-info" role="status">{info}</div>}
 
         <button className="av2-oauth" onClick={handleGoogle} disabled={loading || !canSubmit} type="button">
           <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true">
