@@ -50,7 +50,11 @@ export default function FloatingNav({ onLogin, onSignup, onNavigate }) {
 
   const goAndClose = (to) => {
     setOpen(false);
-    onNavigate?.(to);
+    // Defer navigation until the panel has actually collapsed. Scrolling to a
+    // section while the ~200px-tall menu is still in the DOM computes the target
+    // against a layout that is about to shift up by exactly that height, landing
+    // the heading a menu-height off-screen. Two frames clears the reflow.
+    requestAnimationFrame(() => requestAnimationFrame(() => onNavigate?.(to)));
   };
 
   return (

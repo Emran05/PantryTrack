@@ -119,6 +119,9 @@
 .v2-hero-demo { display: flex; justify-content: center; }
 
 /* ---- sections ---- */
+/* Anchor targets clear the sticky floating nav, or a deep-linked heading lands
+   tucked behind the bar. Covers the pill height plus a little breathing room. */
+[data-anchor] { scroll-margin-top: 76px; }
 .v2-section { padding: 72px 24px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
 .v2-section-alt { background: rgba(255, 255, 255, 0.015); }
 .v2-section-inner { max-width: 1120px; margin: 0 auto; }
