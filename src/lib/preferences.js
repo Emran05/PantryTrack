@@ -410,13 +410,17 @@ export async function syncUserPreferences() {
   const under16 = data.is_under_16 === true || isUnder16();
   safeSet(U16_KEY, under16);
 
-  // Do-Not-Sell merges sticky toward privacy: true from either side wins, and a
+  // Do-Not-Sell merges sticky toward privacy: true from any source wins, and a
   // minor is always opted out. Turning it OFF only happens through an explicit
   // setDoNotSell(false) push by an adult account.
   safeSet(DNS_KEY, data.do_not_sell === true || getDoNotSell() || under16);
-  // Local opt-out (or a minor flag) that never reached the server gets pushed up
-  // now — the server flag is what actually stops data use.
-  if ((getDoNotSell() || under16) && data.do_not_sell !== true) schedulePushPrefs();
+  // Any effective opt-out that hasn't reached the server gets pushed up now — the
+  // SERVER flag is what actually stops the sale. GPC must be included: a user
+  // whose only signal is the browser's Global Privacy Control was shown as
+  // "opted out" locally (isDoNotSellEffective) while the server row still said
+  // false, so their data was sold despite an honoured signal. Push closes that.
+  const effectiveOptOut = getDoNotSell() || under16 || isGpcActive();
+  if (effectiveOptOut && data.do_not_sell !== true) schedulePushPrefs();
 
   // First sync on THIS device merges the local state up instead of discarding
   // it — otherwise a user with favorites/pins on two devices loses whichever
