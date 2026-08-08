@@ -49,7 +49,10 @@
 .v2-btn-sm { padding: 8px 14px; min-height: 38px; font-size: 0.9rem; }
 .v2-btn-lg { padding: 15px 28px; min-height: 52px; font-size: 1.05rem; }
 
-/* ---- hero ---- */
+/* ---- hero ----
+   DOM order is demo, then copy (matches the mobile stack: pantry on top). On
+   desktop the copy takes the wider left column via `order`, which reorders the
+   grid visually WITHOUT changing focus order — see LandingV2.jsx. */
 .v2-hero {
   max-width: 1120px;
   margin: 0 auto;
@@ -58,6 +61,10 @@
   grid-template-columns: 1.05fr 0.95fr;
   gap: 56px;
   align-items: center;
+}
+
+@media (min-width: 901px) {
+  .v2-hero-copy { order: -1; }
 }
 
 .v2-h1 {
@@ -235,8 +242,8 @@
     gap: 32px;
     padding: 40px 20px 56px;
   }
-  /* The pantry leads on phones — it explains the product faster than words. */
-  .v2-hero-demo { order: -1; }
+  /* The pantry leads on phones — and now it also leads in the DOM, so no
+     `order` override is needed here; the natural stack already matches. */
   .v2-steps { grid-template-columns: 1fr; gap: 22px; }
   .v2-split { grid-template-columns: 1fr; gap: 28px; }
   .v2-section { padding: 52px 20px; }

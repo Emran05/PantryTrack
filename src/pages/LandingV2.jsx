@@ -73,7 +73,14 @@ export default function LandingV2() {
         }}
       />
 
+      {/* Demo first in the DOM so focus/reading order matches the mobile visual
+          order (pantry on top). Desktop swaps them back with CSS `order`, which
+          does not affect the tab sequence — that was the WCAG 2.4.3 mismatch. */}
       <header className="v2-hero">
+        <div className="v2-hero-demo">
+          <LivePantryHero onSaveClick={toSignup} />
+        </div>
+
         <div className="v2-hero-copy">
           <h1 className="v2-h1">
             Know what&rsquo;s in your fridge.<br />
@@ -92,10 +99,6 @@ export default function LandingV2() {
             <button className="v2-btn" onClick={toSignup}>Start free</button>
             <span className="v2-cta-note">No card · works on any phone</span>
           </div>
-        </div>
-
-        <div className="v2-hero-demo">
-          <LivePantryHero onSaveClick={toSignup} />
         </div>
       </header>
 
