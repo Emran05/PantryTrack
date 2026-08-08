@@ -242,6 +242,40 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
   window.addEventListener('online', () => schedulePushPrefs());
 }
 
+// Age band, never a date of birth (see migration 20260807190000). Sticky toward
+// true the same way do_not_sell is: once any source says under-16, it stays
+// under-16 until an adult account explicitly clears it. The DB constraint
+// forbids selling a minor, so this must be settled BEFORE the first prefs push.
+const U16_KEY = 'pantry_under_16';
+
+// Age band from a date-of-birth string. Returns true/false, or null when not
+// answered / unparseable. The caller uses only the boolean and discards the
+// date — no birthdate is ever stored. `today` is injectable for tests.
+export function computeUnder16(dobStr, today) {
+  if (!dobStr) return null;
+  const dob = new Date(dobStr);
+  if (Number.isNaN(dob.getTime())) return null;
+  const now = today ? new Date(today) : new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const beforeBirthday =
+    now.getMonth() < dob.getMonth() ||
+    (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate());
+  if (beforeBirthday) age -= 1;
+  return age < 16;
+}
+
+export function isUnder16() {
+  return safeGet(U16_KEY, false) === true;
+}
+
+export function setUnder16(value) {
+  safeSet(U16_KEY, value === true);
+  // A minor is never sold — force the opt-out locally too, so it holds even
+  // before the row lands and even offline.
+  if (value === true) safeSet(DNS_KEY, true);
+  schedulePushPrefs();
+}
+
 export function isGpcActive() {
   return typeof navigator !== 'undefined' && navigator.globalPrivacyControl === true;
 }
@@ -273,12 +307,16 @@ async function pushUserPreferences() {
   const userId = await currentUserId();
   if (!userId) return false;
 
+  const under16 = isUnder16();
   const { error } = await supabase.from('user_preferences').upsert({
     user_id: userId,
     diet: getDiet(),
     favorite_recipes: getFavoriteRecipeIds(),
     pinned_items: collectLocalPins(),
-    do_not_sell: getDoNotSell() || isGpcActive(),
+    // A minor's opt-out is mandatory, not a preference — OR it in so the row can
+    // never violate the minors_are_never_sold CHECK constraint.
+    do_not_sell: getDoNotSell() || isGpcActive() || under16,
+    is_under_16: under16,
     updated_at: new Date().toISOString(),
   });
   if (error) {
@@ -316,6 +354,18 @@ export async function syncUserPreferences() {
   const userId = await currentUserId();
   if (!userId) return;
 
+  // Seed the age band from the signup attestation stored in auth metadata,
+  // BEFORE any read/create below. Otherwise a minor who signed up on one device
+  // and first logs in on another (fresh local storage, no row yet) would create
+  // their preferences row with is_under_16 = false and be sold by default. This
+  // is sticky-toward-under-16, so it never downgrades an existing minor flag.
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.user_metadata?.is_under_16 === true) setUnder16(true);
+  } catch {
+    // metadata unavailable — local/server merge below still applies
+  }
+
   const { data, error } = await supabase
     .from('user_preferences')
     .select('*')
@@ -339,12 +389,19 @@ export async function syncUserPreferences() {
   const serverFavs = Array.isArray(data.favorite_recipes) ? data.favorite_recipes : [];
   const serverPins = data.pinned_items && typeof data.pinned_items === 'object' ? data.pinned_items : {};
 
-  // Do-Not-Sell merges sticky toward privacy: true from either side wins.
-  // Turning it OFF only happens through an explicit setDoNotSell(false) push.
-  safeSet(DNS_KEY, data.do_not_sell === true || getDoNotSell());
-  // Local opt-out that never reached the server (e.g. toggled while offline)
-  // gets pushed up now — the server flag is what actually stops data use.
-  if (getDoNotSell() && data.do_not_sell !== true) schedulePushPrefs();
+  // Age band is sticky toward under-16 from any source, like Do-Not-Sell.
+  // Reading it before the opt-out merge means a minor coming in on a new device
+  // forces do_not_sell true below even if this device's local flag was unset.
+  const under16 = data.is_under_16 === true || isUnder16();
+  safeSet(U16_KEY, under16);
+
+  // Do-Not-Sell merges sticky toward privacy: true from either side wins, and a
+  // minor is always opted out. Turning it OFF only happens through an explicit
+  // setDoNotSell(false) push by an adult account.
+  safeSet(DNS_KEY, data.do_not_sell === true || getDoNotSell() || under16);
+  // Local opt-out (or a minor flag) that never reached the server gets pushed up
+  // now — the server flag is what actually stops data use.
+  if ((getDoNotSell() || under16) && data.do_not_sell !== true) schedulePushPrefs();
 
   // First sync on THIS device merges the local state up instead of discarding
   // it — otherwise a user with favorites/pins on two devices loses whichever

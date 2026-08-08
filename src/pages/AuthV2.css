@@ -169,6 +169,13 @@
   cursor: pointer;
 }
 
+.av2-hint {
+  margin: 6px 0 0;
+  font-size: 0.74rem;
+  line-height: 1.4;
+  color: #7d8590;
+}
+
 .av2-forgot:hover:not(:disabled) { color: #c9d1d9; text-decoration: underline; }
 .av2-forgot:disabled { opacity: 0.5; cursor: not-allowed; }
 

@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { setUnder16, computeUnder16 } from '../lib/preferences';
 import Icon from '../components/Icon';
 import { HOME } from '../lib/redesignRoutes';
 import './AuthV2.css';
+
+// Under 16 → data sale requires opt-IN under CCPA, so we default such accounts
+// to never-sold (enforced by the minors_are_never_sold DB constraint). The age
+// math lives in preferences.js (tested); we keep the band only, never the date.
 
 // The auth page (DESIGN_SYSTEM.md §5). Shipped to /login 2026-08-07.
 //
@@ -25,6 +30,7 @@ export default function AuthV2() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [dob, setDob] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -87,6 +93,11 @@ export default function AuthV2() {
       const { error: err } = await supabase.auth.signInWithPassword({ email, password });
       if (err) setError(err.message);
     } else {
+      const under16 = computeUnder16(dob);
+      // Settle the age band locally BEFORE the account exists, so the very first
+      // preferences push already carries do_not_sell for a minor and can never
+      // violate the DB constraint.
+      setUnder16(under16 === true);
       // One visible field, same stored shape as before.
       const parts = name.trim().split(/\s+/);
       const { data, error: err } = await supabase.auth.signUp({
@@ -98,6 +109,9 @@ export default function AuthV2() {
             last_name: parts.slice(1).join(' '),
             legal_version: '2026-08-06-draft',
             legal_accepted_at: new Date().toISOString(),
+            // Band only — never the birthdate. This is the tamper-resistant
+            // record of what was attested at signup.
+            is_under_16: under16 === true,
           },
         },
       });
@@ -109,7 +123,7 @@ export default function AuthV2() {
     setLoading(false);
   };
 
-  const canSubmit = isLogin ? true : agreed;
+  const canSubmit = isLogin ? true : (agreed && !!dob);
 
   return (
     <div className="av2">
@@ -195,6 +209,27 @@ export default function AuthV2() {
               </button>
             )}
           </div>
+
+          {!isLogin && (
+            <div className="av2-field">
+              <label className="av2-label" htmlFor="av2-dob">Date of birth</label>
+              <input
+                id="av2-dob"
+                name="dob"
+                type="date"
+                className="av2-input"
+                autoComplete="bday"
+                required
+                max={new Date().toISOString().slice(0, 10)}
+                value={dob}
+                onChange={(e) => setDob(e.target.value)}
+              />
+              <p className="av2-hint">
+                We keep your age range, never the date. Under-16 accounts are
+                never included in data sharing.
+              </p>
+            </div>
+          )}
 
           {!isLogin && (
             <label className="av2-consent">
