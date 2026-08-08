@@ -10,6 +10,11 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Dismisses the consent gate within a session after the metadata write, since
+  // the reference-stability guard below keeps the same user object (same id) and
+  // would otherwise leave stale metadata making needsConsent stick true. A full
+  // reload reads the real, now-populated metadata and needs no flag.
+  const [consentSatisfied, setConsentSatisfied] = useState(false);
   const lastSyncedUserId = useRef(null);
 
   useEffect(() => {
@@ -22,10 +27,11 @@ export function AuthProvider({ children }) {
       setUser(prev => (prev?.id === u?.id ? prev : u));
       if (u && u.id !== lastSyncedUserId.current) {
         lastSyncedUserId.current = u.id;
+        setConsentSatisfied(false); // a different account may still owe consent
         ensureProfileFromMetadata(u);
         syncUserPreferences();
       }
-      if (!u) lastSyncedUserId.current = null;
+      if (!u) { lastSyncedUserId.current = null; setConsentSatisfied(false); }
     };
 
     // The initial session check must never strand the splash: failures and
@@ -84,8 +90,22 @@ export function AuthProvider({ children }) {
     return supabase.auth.signOut();
   }, []);
 
+  // True once a user exists but is missing EITHER an accepted policy OR an age
+  // band. Both are required before the app renders, because the account is
+  // sold-by-default otherwise and CCPA needs opt-in for under-16s:
+  //   - OAuth accounts never run the signup form (no consent, no age),
+  //   - accounts created before consent was required have no policy on file,
+  //   - accounts created before the age band existed have consent but no age —
+  //     still unsellable-by-law until we know they are 16+.
+  const meta = user?.user_metadata;
+  const needsConsent =
+    !!user &&
+    (!meta?.legal_accepted_at || typeof meta?.is_under_16 !== 'boolean') &&
+    !consentSatisfied;
+  const markConsentGiven = useCallback(() => setConsentSatisfied(true), []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signOut, needsConsent, markConsentGiven }}>
       {loading ? (
         <div style={{
           height: '100dvh',

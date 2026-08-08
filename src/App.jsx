@@ -15,6 +15,7 @@ import Landing from './pages/Landing';
 const LandingV2 = lazy(() => import('./pages/LandingV2'));
 const WhyFree = lazy(() => import('./pages/WhyFree'));
 const AuthV2 = lazy(() => import('./pages/AuthV2'));
+const ConsentGate = lazy(() => import('./components/ConsentGate'));
 import Auth from './pages/Auth';
 // Eager, not lazy: these render in the unauthenticated route set too, which
 // has no Suspense boundary — and deep links (recovery emails, invites) should
@@ -50,7 +51,7 @@ function PageTransitionWrapper({ children }) {
 }
 
 function AppContent() {
-  const { user } = useAuth();
+  const { user, needsConsent } = useAuth();
   const { loading, error: pantryError, pantries, retryPantries } = usePantry();
   const location = useLocation();
   const navigate = useNavigate();
@@ -127,6 +128,14 @@ function AppContent() {
         Loading home data...
       </div>
     );
+  }
+
+  // An account with no accepted policy (OAuth, or created before consent was
+  // required) must clear the consent + age gate before the app renders — it is
+  // being sold-by-default otherwise. Comes before the pantry fetch: no reason to
+  // load data for a session that may sign out at the gate.
+  if (needsConsent) {
+    return <Suspense fallback={null}><ConsentGate /></Suspense>;
   }
 
   // Pantry load/create failed and we have nothing to show — say so instead of
