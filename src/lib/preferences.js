@@ -276,6 +276,21 @@ export function setUnder16(value) {
   schedulePushPrefs();
 }
 
+// Whether the user has agreed to send an unreadable receipt PHOTO to Google's
+// vision API when on-device OCR fails. Per-device; undefined = never asked.
+// A granted "yes" is remembered so we ask at most once (CCPA-adjacent: the image
+// is content that leaves the device, so it needs an affirmative choice).
+const VISION_KEY = 'pantry_vision_consent';
+
+export function getVisionConsent() {
+  const v = safeGet(VISION_KEY, null);
+  return v === true ? true : v === false ? false : null;
+}
+
+export function setVisionConsent(value) {
+  safeSet(VISION_KEY, value === true);
+}
+
 export function isGpcActive() {
   return typeof navigator !== 'undefined' && navigator.globalPrivacyControl === true;
 }

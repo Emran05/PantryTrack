@@ -6,6 +6,7 @@ import { CATEGORIES, UNITS, getDefaultExpirationDate } from '../lib/helpers';
 import { useToast } from '../components/ToastContext';
 import { readReceiptOCR } from '../lib/ocr/readReceiptOCR';
 import { readPendingScan, writePendingScan, clearPendingScan, dataUrlToBlob } from '../lib/scanPersistence';
+import { getVisionConsent, setVisionConsent } from '../lib/preferences';
 import './ScanReceipt.css';
 
 // If OCR produces fewer than this many characters of usable text, we treat it
@@ -80,7 +81,58 @@ export default function ScanReceipt() {
   const [ocrProgress, setOcrProgress] = useState(0);
   // null | { code, message, resetLabel? }
   const [scanError, setScanError] = useState(null);
+  // When on-device OCR fails, the receipt IMAGE has to go to Google to be read.
+  // That is the one time a photo leaves the device, so we ask first (once) and
+  // remember a yes. Non-null holds the paused params while the modal is open.
+  const [visionPrompt, setVisionPrompt] = useState(null); // null | { base64, mimeType }
   const { showToast } = useToast();
+
+  // Enrich a Gemini result into the review list, or surface a "no items"
+  // banner. Shared by the OCR/text path and the vision path so the tail lives
+  // in one place. Declared before runPipeline because it is a dependency of it.
+  const finalizeResult = useCallback((result) => {
+    if (result.fellBack) {
+      showToast('Your key didn\'t work — used free tier. Update key in Settings.', 'info', { duration: 6000 });
+    }
+    const enriched = result.items.map((item, i) => {
+      const category = CATEGORIES.find((c) => c.id === item.category) ? item.category : 'other';
+      return {
+        ...item,
+        _key: i,
+        _selected: true,
+        category,
+        unit: UNITS.includes(item.unit) ? item.unit : 'pcs',
+        expirationDate: item.expiration_date || getDefaultExpirationDate(category, item.shelfLifeDays),
+      };
+    });
+    if (enriched.length === 0) {
+      // Success with zero items would render photo-with-no-buttons — surface
+      // it through the existing error banner (which offers Try Again).
+      clearPendingScan();
+      setScanError({ code: 'NO_ITEMS', message: "Couldn't find any grocery items on that photo — try a clearer shot or a different receipt." });
+      return;
+    }
+    setParsedItems(enriched);
+    // Persist the parsed list — now a refresh would resume straight to review.
+    writePendingScan({ parsedItems: enriched });
+  }, [showToast]);
+
+  const handleParseError = useCallback((err) => {
+    console.error('Receipt parse failed:', err);
+    // Keep the photo and the persisted scan blob — a retry reuses them (and
+    // skips OCR entirely if it already succeeded). Discarding here forced a
+    // full re-capture even when the error itself said "try again in Ns".
+    let message = err.message;
+    if (err.code === 'GEMINI_RATE_LIMIT') {
+      const wait = err.retryDelaySeconds
+        ? `try again in ${err.retryDelaySeconds}s`
+        : 'try again in a moment';
+      message = `Google throttled the request — ${wait}. Add your own key in Settings for more headroom.`;
+    } else if (!err.code) {
+      message = 'Couldn\'t process the receipt — check your connection and try again.';
+    }
+    setScanError({ code: err.code || 'PARSE_FAILED', message, resetLabel: err.resetLabel });
+  }, []);
 
   // Run the OCR + parse pipeline against a pending scan blob. Both fresh
   // captures and resume-after-reload feed through here.
@@ -121,6 +173,16 @@ export default function ScanReceipt() {
       if (usableText) {
         result = await processReceiptText(ocrText, ocrLines || []);
       } else {
+        // Vision path: the receipt IMAGE must leave the device. Gate on consent.
+        const consent = getVisionConsent();
+        if (consent !== true) {
+          // Pause here and ask. The modal's Allow resumes via runVision(); a
+          // decline surfaces guidance. Either way, stop the spinner meanwhile.
+          setVisionPrompt({ base64, mimeType });
+          setIsProcessing(false);
+          setScanStage('idle');
+          return;
+        }
         if (ocrText !== undefined) {
           // We got SOME text but not enough — explain the slower fallback.
           showToast('OCR couldn\'t read clearly — using image fallback…', 'info', { duration: 3000 });
@@ -128,51 +190,50 @@ export default function ScanReceipt() {
         result = await processReceiptImage(base64, mimeType);
       }
 
-      if (result.fellBack) {
-        showToast('Your key didn\'t work — used free tier. Update key in Settings.', 'info', { duration: 6000 });
-      }
-
-      const enriched = result.items.map((item, i) => {
-        const category = CATEGORIES.find((c) => c.id === item.category) ? item.category : 'other';
-        return {
-          ...item,
-          _key: i,
-          _selected: true,
-          category,
-          unit: UNITS.includes(item.unit) ? item.unit : 'pcs',
-          expirationDate: item.expiration_date || getDefaultExpirationDate(category, item.shelfLifeDays),
-        };
-      });
-      if (enriched.length === 0) {
-        // Success with zero items would render photo-with-no-buttons — surface
-        // it through the existing error banner (which offers Try Again).
-        clearPendingScan();
-        setScanError({ code: 'NO_ITEMS', message: "Couldn't find any grocery items on that photo — try a clearer shot or a different receipt." });
-        return;
-      }
-      setParsedItems(enriched);
-      // Persist the parsed list — now a refresh would resume straight to review.
-      writePendingScan({ parsedItems: enriched });
+      finalizeResult(result);
+      return;
     } catch (err) {
-      console.error('Receipt parse failed:', err);
-      // Keep the photo and the persisted scan blob — a retry reuses them (and
-      // skips OCR entirely if it already succeeded). Discarding here forced a
-      // full re-capture even when the error itself said "try again in Ns".
-      let message = err.message;
-      if (err.code === 'GEMINI_RATE_LIMIT') {
-        const wait = err.retryDelaySeconds
-          ? `try again in ${err.retryDelaySeconds}s`
-          : 'try again in a moment';
-        message = `Google throttled the request — ${wait}. Add your own key in Settings for more headroom.`;
-      } else if (!err.code) {
-        message = 'Couldn\'t process the receipt — check your connection and try again.';
-      }
-      setScanError({ code: err.code || 'PARSE_FAILED', message, resetLabel: err.resetLabel });
+      handleParseError(err);
     } finally {
       setIsProcessing(false);
       setScanStage('idle');
     }
-  }, [showToast]);
+  }, [showToast, finalizeResult, handleParseError]);
+
+  // Runs the vision call after consent is granted, reusing the same
+  // finalize/error tail as the main pipeline.
+  const runVision = useCallback(async ({ base64, mimeType }) => {
+    setIsProcessing(true);
+    setScanStage('parsing');
+    setScanError(null);
+    try {
+      const result = await processReceiptImage(base64, mimeType);
+      finalizeResult(result);
+    } catch (err) {
+      handleParseError(err);
+    } finally {
+      setIsProcessing(false);
+      setScanStage('idle');
+    }
+  }, [finalizeResult, handleParseError]);
+
+  const onVisionAllow = useCallback(() => {
+    setVisionConsent(true);
+    const params = visionPrompt;
+    setVisionPrompt(null);
+    if (params) runVision(params);
+  }, [visionPrompt, runVision]);
+
+  const onVisionDecline = useCallback(() => {
+    // "Not now" is per-scan — we do NOT remember a no, so the fallback stays
+    // available next time. Keep the photo so a retry (or a clearer reshoot)
+    // works, and point at manual entry as the offline-safe path.
+    setVisionPrompt(null);
+    setScanError({
+      code: 'VISION_DECLINED',
+      message: "We couldn't read that receipt on your device, and you chose not to send the photo. Try a clearer shot, or add items by hand.",
+    });
+  }, []);
 
   // Resume an in-flight scan after a page reload. StrictMode mounts effects
   // twice in dev — the ref guard makes sure we don't double-run the pipeline.
@@ -314,6 +375,33 @@ export default function ScanReceipt() {
 
   return (
     <div className="page-content app-container">
+      {visionPrompt && (
+        <div
+          className="scan-vision-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="vision-consent-title"
+        >
+          <div className="scan-vision-modal">
+            <h3 id="vision-consent-title">Send this photo to Google to read it?</h3>
+            <p>
+              Your phone couldn&rsquo;t read this receipt. We can send the photo to
+              Google&rsquo;s text-reader to pull the items out. It&rsquo;s used only
+              to read this receipt, it isn&rsquo;t stored by us, and it&rsquo;s never
+              sold. Readable receipts never leave your device.
+            </p>
+            <div className="scan-vision-actions">
+              <button className="btn btn-secondary" onClick={onVisionDecline}>
+                Not now
+              </button>
+              <button className="btn btn-primary" onClick={onVisionAllow}>
+                Send and read it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="scan-page animate-fade-in">
         {/* Header */}
         <div className="scan-header">
