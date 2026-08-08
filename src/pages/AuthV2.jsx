@@ -256,6 +256,18 @@ export default function AuthV2() {
           <button className="av2-submit" type="submit" disabled={loading || !canSubmit}>
             {loading ? 'One moment…' : isLogin ? 'Log in' : 'Create pantry'}
           </button>
+
+          {/* CCPA notice at collection: at the point PI is collected, state what
+              is collected and how, and give a conspicuous opt-out link. */}
+          {!isLogin && (
+            <p className="av2-notice">
+              We collect your email, the items you track, and how you use the app,
+              and we share de-identified grocery trends. See the{' '}
+              <a href="/legal/privacy.html" target="_blank" rel="noreferrer">Privacy Policy</a>{' '}
+              or{' '}
+              <a href="/legal/do-not-sell.html" target="_blank" rel="noreferrer">Do&nbsp;Not&nbsp;Sell&nbsp;or&nbsp;Share&nbsp;My&nbsp;Data</a>.
+            </p>
+          )}
         </form>
 
         <div className="av2-alt">

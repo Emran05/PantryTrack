@@ -180,6 +180,17 @@
   color: #7d8590;
 }
 
+.av2-notice {
+  margin: 12px 0 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #7d8590;
+  text-wrap: pretty;
+}
+
+.av2-notice a { color: #8b949e; text-decoration: underline; }
+.av2-notice a:hover { color: #c9d1d9; }
+
 .av2-forgot:hover:not(:disabled) { color: #c9d1d9; text-decoration: underline; }
 .av2-forgot:disabled { opacity: 0.5; cursor: not-allowed; }
 
